@@ -1,0 +1,528 @@
+{
+  "info": {
+    "_postman_id": "teamflow-backend-api-v1",
+    "name": "TeamFlow Backend API (Complete Test Suite)",
+    "description": "Complete collection to test all authentication, workspaces, projects, boards, columns, tasks, comments, notifications, and analytics endpoints of the TeamFlow backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "workspaceId", "value": "", "type": "string" },
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "boardId", "value": "", "type": "string" },
+    { "key": "columnId", "value": "", "type": "string" },
+    { "key": "taskId", "value": "", "type": "string" },
+    { "key": "commentId", "value": "", "type": "string" },
+    { "key": "invitationToken", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login (Seed User: Alice)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', json.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', json.data.tokens.refreshToken);",
+                  "    console.log('Saved accessToken and refreshToken to variables');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@teamflow.local\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Register New User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', json.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', json.data.tokens.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dave Tester\",\n  \"email\": \"dave{{$timestamp}}@teamflow.local\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Get Current User Profile (/me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          }
+        },
+        {
+          "name": "Refresh Token Rotation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', json.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', json.data.tokens.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] }
+          }
+        },
+        {
+          "name": "List Active Sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/sessions", "host": ["{{baseUrl}}"], "path": ["auth", "sessions"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Workspaces",
+      "item": [
+        {
+          "name": "List My Workspaces",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.length > 0) {",
+                  "    pm.collectionVariables.set('workspaceId', json.data[0].id);",
+                  "    console.log('Set workspaceId to:', json.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/workspaces", "host": ["{{baseUrl}}"], "path": ["workspaces"] }
+          }
+        },
+        {
+          "name": "Create Workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.id) {",
+                  "    pm.collectionVariables.set('workspaceId', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fintech Division\",\n  \"description\": \"Payments and banking platform development\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/workspaces", "host": ["{{baseUrl}}"], "path": ["workspaces"] }
+          }
+        },
+        {
+          "name": "Get Workspace Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/workspaces/{{workspaceId}}", "host": ["{{baseUrl}}"], "path": ["workspaces", "{{workspaceId}}"] }
+          }
+        },
+        {
+          "name": "List Workspace Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/members", "host": ["{{baseUrl}}"], "path": ["workspaces", "{{workspaceId}}", "members"] }
+          }
+        },
+        {
+          "name": "Invite Member to Workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.token) {",
+                  "    pm.collectionVariables.set('invitationToken', json.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newcollaborator@teamflow.local\",\n  \"role\": \"MEMBER\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/invitations/workspaces/{{workspaceId}}", "host": ["{{baseUrl}}"], "path": ["invitations", "workspaces", "{{workspaceId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Projects",
+      "item": [
+        {
+          "name": "Create Project (Auto-creates Board & 4 Columns)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.id) {",
+                  "    pm.collectionVariables.set('projectId', json.data.id);",
+                  "    if (json.data.boards && json.data.boards.length > 0) {",
+                  "        pm.collectionVariables.set('boardId', json.data.boards[0].id);",
+                  "        if (json.data.boards[0].columns && json.data.boards[0].columns.length > 0) {",
+                  "            pm.collectionVariables.set('columnId', json.data.boards[0].columns[0].id);",
+                  "        }",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"name\": \"Mobile Banking App\",\n  \"key\": \"MBA\",\n  \"description\": \"iOS & Android React Native Client\",\n  \"priority\": \"HIGH\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/projects", "host": ["{{baseUrl}}"], "path": ["projects"] }
+          }
+        },
+        {
+          "name": "List Workspace Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/projects/workspace/{{workspaceId}}", "host": ["{{baseUrl}}"], "path": ["projects", "workspace", "{{workspaceId}}"] }
+          }
+        },
+        {
+          "name": "Get Project Details (with Boards & Columns)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/projects/{{projectId}}", "host": ["{{baseUrl}}"], "path": ["projects", "{{projectId}}"] }
+          }
+        },
+        {
+          "name": "Get Project Overview & Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/projects/{{projectId}}/overview", "host": ["{{baseUrl}}"], "path": ["projects", "{{projectId}}", "overview"] }
+          }
+        },
+        {
+          "name": "Get Project Activity Audit Trail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/projects/{{projectId}}/activity", "host": ["{{baseUrl}}"], "path": ["projects", "{{projectId}}", "activity"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Boards and Columns",
+      "item": [
+        {
+          "name": "List Project Boards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/boards/project/{{projectId}}", "host": ["{{baseUrl}}"], "path": ["boards", "project", "{{projectId}}"] }
+          }
+        },
+        {
+          "name": "Create Custom Column in Board",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"boardId\": \"{{boardId}}\",\n  \"name\": \"QA Testing\",\n  \"color\": \"#A855F7\",\n  \"position\": 3500,\n  \"isCompletedColumn\": false\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/columns", "host": ["{{baseUrl}}"], "path": ["columns"] }
+          }
+        },
+        {
+          "name": "Reorder Columns",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"boardId\": \"{{boardId}}\",\n  \"columns\": [\n    { \"id\": \"{{columnId}}\", \"position\": 1000 }\n  ]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/columns/reorder", "host": ["{{baseUrl}}"], "path": ["columns", "reorder"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Tasks",
+      "item": [
+        {
+          "name": "Create Task in Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.id) {",
+                  "    pm.collectionVariables.set('taskId', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"boardColumnId\": \"{{columnId}}\",\n  \"title\": \"Implement Biometric Authentication\",\n  \"description\": \"Add FaceID and Fingerprint login on iOS/Android.\",\n  \"priority\": \"URGENT\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tasks", "host": ["{{baseUrl}}"], "path": ["tasks"] }
+          }
+        },
+        {
+          "name": "List Project Tasks (with Search & Filters)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tasks/project/{{projectId}}?priority=URGENT", "host": ["{{baseUrl}}"], "path": ["tasks", "project", "{{projectId}}"], "query": [{ "key": "priority", "value": "URGENT" }] }
+          }
+        },
+        {
+          "name": "Get Task Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tasks/{{taskId}}", "host": ["{{baseUrl}}"], "path": ["tasks", "{{taskId}}"] }
+          }
+        },
+        {
+          "name": "Move Task (Drag & Drop to New Column & Position)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destinationColumnId\": \"{{columnId}}\",\n  \"newPosition\": 2000\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tasks/{{taskId}}/move", "host": ["{{baseUrl}}"], "path": ["tasks", "{{taskId}}", "move"] }
+          }
+        },
+        {
+          "name": "List My Assigned Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tasks/my-assigned", "host": ["{{baseUrl}}"], "path": ["tasks", "my-assigned"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Comments and Discussions",
+      "item": [
+        {
+          "name": "Post Comment on Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success && json.data.id) {",
+                  "    pm.collectionVariables.set('commentId', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"I have prepared the iOS Secure Enclave integration.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tasks/{{taskId}}/comments", "host": ["{{baseUrl}}"], "path": ["tasks", "{{taskId}}", "comments"] }
+          }
+        },
+        {
+          "name": "Post Threaded Reply",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Great! Does it fallback gracefully to PIN on simulator?\",\n  \"parentId\": \"{{commentId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tasks/{{taskId}}/comments", "host": ["{{baseUrl}}"], "path": ["tasks", "{{taskId}}", "comments"] }
+          }
+        },
+        {
+          "name": "List Task Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tasks/{{taskId}}/comments", "host": ["{{baseUrl}}"], "path": ["tasks", "{{taskId}}", "comments"] }
+          }
+        },
+        {
+          "name": "Edit Own Comment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated: Yes, simulator fallback to PIN is tested and passing!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/comments/{{commentId}}", "host": ["{{baseUrl}}"], "path": ["comments", "{{commentId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Notifications",
+      "item": [
+        {
+          "name": "List User Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/notifications", "host": ["{{baseUrl}}"], "path": ["notifications"] }
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/notifications/unread-count", "host": ["{{baseUrl}}"], "path": ["notifications", "unread-count"] }
+          }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/notifications/read-all", "host": ["{{baseUrl}}"], "path": ["notifications", "read-all"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Analytics & Metrics",
+      "item": [
+        {
+          "name": "User Dashboard Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/analytics/dashboard", "host": ["{{baseUrl}}"], "path": ["analytics", "dashboard"] }
+          }
+        },
+        {
+          "name": "Project Analytics (Completion % & Member Workload)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/analytics/projects/{{projectId}}", "host": ["{{baseUrl}}"], "path": ["analytics", "projects", "{{projectId}}"] }
+          }
+        },
+        {
+          "name": "Project Health Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/analytics/projects/{{projectId}}/reports", "host": ["{{baseUrl}}"], "path": ["analytics", "projects", "{{projectId}}", "reports"] }
+          }
+        }
+      ]
+    }
+  ]
+}
