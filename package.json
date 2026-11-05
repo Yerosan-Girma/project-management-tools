@@ -1,0 +1,15 @@
+{
+  "name": "teamflow-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TeamFlow - Project Management and Team Collaboration Platform",
+  "scripts": {
+    "dev": "npm --prefix backend run dev",
+    "build": "npm --prefix backend run build",
+    "start": "npm --prefix backend run start",
+    "test": "npm --prefix backend run test",
+    "prisma:generate": "npm --prefix backend run prisma:generate",
+    "prisma:migrate": "npm --prefix backend run prisma:migrate",
+    "prisma:seed": "npm --prefix backend run prisma:seed"
+  }
+}
