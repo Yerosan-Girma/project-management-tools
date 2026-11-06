@@ -32,6 +32,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Modal } from '../../../components/ui/Modal';
 import { Tabs } from '../../../components/ui/Tabs';
+import { KanbanBoard } from '../../boards/components/KanbanBoard';
 
 export const ProjectDetailPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -252,30 +253,13 @@ export const ProjectDetailPage: React.FC = () => {
       {/* Navigation Tabs */}
       <Tabs tabs={tabsList} activeTab={currentTab} onChange={handleTabChange} />
 
-      {/* Tab 1: Board View Placeholder (Kanban interactive engine implemented next in Category 5) */}
+      {/* Tab 1: Board View */}
       {currentTab === 'board' && (
-        <div id="project-board-container" className="pt-2">
-          {project.boards && project.boards.length > 0 ? (
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-              <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Kanban className="w-5 h-5 text-primary-600" />
-                  <h3 className="font-semibold text-sm">{project.boards[0].name}</h3>
-                </div>
-                <span className="text-xs text-slate-400">
-                  {project.boards[0].columns?.length || 4} Columns Ready
-                </span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Default board provisioned. Full drag-and-drop Kanban interface loads directly in the next sprint step.
-              </p>
-            </div>
-          ) : (
-            <div className="text-center py-12 text-slate-500 text-xs">
-              Board is being initialized...
-            </div>
-          )}
-        </div>
+        <KanbanBoard
+          projectId={project.id}
+          projectKey={project.key}
+          projectMembers={members}
+        />
       )}
 
       {/* Tab 2: Overview */}

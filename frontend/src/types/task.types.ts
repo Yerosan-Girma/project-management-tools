@@ -2,6 +2,8 @@ import { User } from './auth.types';
 import { PriorityLevel } from './project.types';
 import { BoardColumn } from './board.types';
 
+export type { PriorityLevel };
+
 export interface TaskLabel {
   id: string;
   workspaceId: string;
@@ -33,6 +35,12 @@ export interface Task {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  code?: string;
+  project?: {
+    id: string;
+    key: string;
+    name: string;
+  };
   assignees?: TaskAssignee[];
   labels?: Array<{ label: TaskLabel }>;
   column?: BoardColumn;
