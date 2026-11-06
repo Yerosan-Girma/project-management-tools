@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import LandingPage from '../features/landing/pages/LandingPage';
 import LoginPage from '../features/auth/pages/LoginPage';
 import RegisterPage from '../features/auth/pages/RegisterPage';
@@ -6,6 +6,8 @@ import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '../features/auth/pages/ResetPasswordPage';
 import VerifyEmailPage from '../features/auth/pages/VerifyEmailPage';
 import ProfilePage from '../features/auth/pages/ProfilePage';
+import DashboardPage from '../features/dashboard/pages/DashboardPage';
+import CalendarPage from '../features/calendar/pages/CalendarPage';
 import WorkspacesPage from '../features/workspaces/pages/WorkspacesPage';
 import WorkspaceDetailPage from '../features/workspaces/pages/WorkspaceDetailPage';
 import ProjectsPage from '../features/projects/pages/ProjectsPage';
@@ -63,7 +65,7 @@ export const router = createBrowserRouter([
         children: [
           {
             path: '/dashboard',
-            element: <Navigate to="/projects" replace />,
+            element: <DashboardPage />,
           },
           {
             path: '/workspaces',
@@ -84,6 +86,10 @@ export const router = createBrowserRouter([
           {
             path: '/my-tasks',
             element: <MyTasksPage />,
+          },
+          {
+            path: '/calendar',
+            element: <CalendarPage />,
           },
           {
             path: '/notifications',

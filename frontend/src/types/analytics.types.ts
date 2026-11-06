@@ -1,29 +1,45 @@
 import { PriorityLevel } from './project.types';
 
-export interface DashboardStats {
+export interface UserDashboardStats {
   workspacesCount: number;
-  projectsCount: number;
-  assignedTasksCount: number;
-  overdueTasksCount: number;
-  upcomingTasksCount: number;
+  projects: {
+    total: number;
+    active: number;
+  };
+  tasks: {
+    assignedTotal: number;
+    completed: number;
+    pending: number;
+    overdue: number;
+    upcomingWithin24h: number;
+  };
 }
 
+export type DashboardStats = UserDashboardStats;
+
 export interface ProjectAnalytics {
-  projectId: string;
-  projectName: string;
-  totalTasks: number;
-  completedTasks: number;
-  pendingTasks: number;
-  overdueTasks: number;
-  completionRate: number;
-  priorityBreakdown: Record<PriorityLevel, number>;
+  project: {
+    id: string;
+    name: string;
+    key: string;
+    status: string;
+    priority: string;
+  };
+  overview: {
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    overdueTasks: number;
+    completionPercentage: number;
+  };
+  priorityDistribution: Record<PriorityLevel, number>;
   memberWorkload: Array<{
     userId: string;
     name: string;
     email: string;
     avatarUrl?: string | null;
-    taskCount: number;
-    completedCount: number;
+    assigned: number;
+    completed: number;
   }>;
 }
 
