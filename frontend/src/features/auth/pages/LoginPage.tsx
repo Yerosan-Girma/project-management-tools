@@ -23,6 +23,7 @@ export const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -31,6 +32,12 @@ export const LoginPage: React.FC = () => {
       password: '',
     },
   });
+
+  const handleQuickFill = (email: string) => {
+    setValue('email', email, { shouldValidate: true });
+    setValue('password', 'Password123!', { shouldValidate: true });
+    setApiError(null);
+  };
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -115,6 +122,47 @@ export const LoginPage: React.FC = () => {
           >
             Create free account
           </Link>
+        </div>
+
+        {/* Demo Accounts Quick-Fill */}
+        <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">
+            Demo accounts (click to fill credentials):
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleQuickFill('alice@teamflow.local')}
+              className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
+            >
+              <div className="font-semibold text-slate-800 dark:text-slate-200">Alice</div>
+              <div className="text-[10px] text-slate-500">Project Owner</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickFill('bob@teamflow.local')}
+              className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
+            >
+              <div className="font-semibold text-slate-800 dark:text-slate-200">Bob</div>
+              <div className="text-[10px] text-slate-500">Developer</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickFill('admin@teamflow.local')}
+              className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
+            >
+              <div className="font-semibold text-slate-800 dark:text-slate-200">Admin</div>
+              <div className="text-[10px] text-slate-500">Platform Admin</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickFill('charlie@teamflow.local')}
+              className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
+            >
+              <div className="font-semibold text-slate-800 dark:text-slate-200">Charlie</div>
+              <div className="text-[10px] text-slate-500">Guest</div>
+            </button>
+          </div>
         </div>
       </form>
     </AuthLayout>
