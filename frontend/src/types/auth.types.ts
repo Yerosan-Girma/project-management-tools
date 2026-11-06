@@ -23,6 +23,37 @@ export interface AuthResponseData {
   tokens: AuthTokens;
 }
 
+export type AuthResponse = AuthResponseData;
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export type LoginInput = LoginCredentials;
+
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export type RegisterInput = RegisterData;
+
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export type ChangePasswordInput = ChangePasswordData;
+
+export interface ResetPasswordData {
+  token: string;
+  password: string;
+}
+
+export type ResetPasswordInput = ResetPasswordData;
+
 export interface SessionInfo {
   id: string;
   ipAddress?: string | null;
