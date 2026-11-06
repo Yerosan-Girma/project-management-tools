@@ -22,3 +22,5 @@ export interface PaginatedResult<T> {
   items: T[];
   pagination: PaginationMeta;
 }
+
+export type PaginatedResponse<T> = PaginatedResult<T>;

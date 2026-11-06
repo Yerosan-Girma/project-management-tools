@@ -1,4 +1,5 @@
 import { User } from './auth.types';
+import { Task } from './task.types';
 
 export interface ActivityLog {
   id: string;
@@ -11,4 +12,8 @@ export interface ActivityLog {
   metadata?: any;
   createdAt: string;
   actor?: User;
+  user?: User;
+  task?: Task;
 }
+
+export type Activity = ActivityLog;

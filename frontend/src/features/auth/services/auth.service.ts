@@ -34,17 +34,17 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<User> {
-    const response = await api.get<ApiResponse<User>>('/users/me');
+    const response = await api.get<ApiResponse<User>>('/auth/me');
     return response.data.data;
   },
 
   async updateProfile(data: { name?: string; avatarUrl?: string }): Promise<User> {
-    const response = await api.patch<ApiResponse<User>>('/users/me', data);
+    const response = await api.patch<ApiResponse<User>>('/users/profile', data);
     return response.data.data;
   },
 
   async changePassword(data: ChangePasswordData): Promise<void> {
-    await api.post('/users/me/change-password', data);
+    await api.post('/users/change-password', data);
   },
 
   async forgotPassword(email: string): Promise<void> {
@@ -56,6 +56,11 @@ export const authService = {
   },
 
   async verifyEmail(token: string): Promise<void> {
-    await api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+    await api.post('/auth/verify-email', { token });
+  },
+
+  async searchUsers(query: string): Promise<User[]> {
+    const response = await api.get<ApiResponse<User[]>>(`/users/search?query=${encodeURIComponent(query)}`);
+    return response.data.data;
   },
 };

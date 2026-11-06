@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import LandingPage from '../features/landing/pages/LandingPage';
 import LoginPage from '../features/auth/pages/LoginPage';
 import RegisterPage from '../features/auth/pages/RegisterPage';
@@ -6,15 +6,31 @@ import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '../features/auth/pages/ResetPasswordPage';
 import VerifyEmailPage from '../features/auth/pages/VerifyEmailPage';
 import ProfilePage from '../features/auth/pages/ProfilePage';
+import WorkspacesPage from '../features/workspaces/pages/WorkspacesPage';
+import WorkspaceDetailPage from '../features/workspaces/pages/WorkspaceDetailPage';
+import ProjectsPage from '../features/projects/pages/ProjectsPage';
+import ProjectDetailPage from '../features/projects/pages/ProjectDetailPage';
+import AcceptInvitationPage from '../features/invitations/pages/AcceptInvitationPage';
 import { GuestRoute } from '../components/layout/GuestRoute';
 import { ProtectedRoute } from '../components/layout/ProtectedRoute';
+import { AppLayout } from '../components/layout/AppLayout';
 
 export const router = createBrowserRouter([
+  // Public Marketing
   {
     path: '/',
     element: <LandingPage />,
   },
-  // Guest only routes
+  // Public / Token Invitations
+  {
+    path: '/invitations/:token',
+    element: <AcceptInvitationPage />,
+  },
+  {
+    path: '/verify-email',
+    element: <VerifyEmailPage />,
+  },
+  // Guest-only auth routes
   {
     element: <GuestRoute />,
     children: [
@@ -36,30 +52,38 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  // Public verification callback
-  {
-    path: '/verify-email',
-    element: <VerifyEmailPage />,
-  },
-  // Protected routes placeholder (Profile and future dashboard routes)
+  // Protected Application Shell
   {
     element: <ProtectedRoute />,
     children: [
       {
-        path: '/profile',
-        element: (
-          <div className="p-8">
-            <ProfilePage />
-          </div>
-        ),
-      },
-      {
-        path: '/dashboard',
-        element: (
-          <div className="p-8 text-center">
-            <h2 className="text-xl font-bold">Dashboard Placeholder</h2>
-          </div>
-        ),
+        element: <AppLayout />,
+        children: [
+          {
+            path: '/dashboard',
+            element: <Navigate to="/projects" replace />,
+          },
+          {
+            path: '/workspaces',
+            element: <WorkspacesPage />,
+          },
+          {
+            path: '/workspaces/:workspaceId',
+            element: <WorkspaceDetailPage />,
+          },
+          {
+            path: '/projects',
+            element: <ProjectsPage />,
+          },
+          {
+            path: '/projects/:projectId',
+            element: <ProjectDetailPage />,
+          },
+          {
+            path: '/profile',
+            element: <ProfilePage />,
+          },
+        ],
       },
     ],
   },
