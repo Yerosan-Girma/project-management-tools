@@ -1,11 +1,12 @@
 import rateLimit from 'express-rate-limit';
 import { ApiResponse } from '../utils/api-response';
 import { ErrorCode } from '../utils/app-error';
+import { env } from '../config/env';
 
 // Standard rate limiter for all general API endpoints
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // 300 requests per 15 min per IP
+  max: env.NODE_ENV === 'production' ? 300 : 10000, // 10000 in dev/test, 300 in production
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
@@ -21,7 +22,7 @@ export const generalLimiter = rateLimit({
 // Stricter rate limiter for authentication routes (login, register, forgot-password)
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // 30 attempts per 15 min
+  max: env.NODE_ENV === 'production' ? 30 : 2000, // 2000 in dev/test, 30 in production
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
