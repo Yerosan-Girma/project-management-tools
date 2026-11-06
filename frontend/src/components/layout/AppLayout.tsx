@@ -17,43 +17,81 @@ import {
   Sun,
   Layers,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuthStore } from '../../stores/auth-store';
 import { useWorkspaceStore } from '../../stores/workspace-store';
 import { useUIStore } from '../../stores/ui-store';
 import { workspaceService } from '../../features/workspaces/services/workspace.service';
+import { notificationService } from '../../features/notifications/services/notification.service';
+import { socketService } from '../../services/socket';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 
 export const AppLayout: React.FC = () => {
-  const { user, logout } = useAuthStore();
+  const { user, accessToken, logout } = useAuthStore();
   const { workspaces, currentWorkspace, setCurrentWorkspace, setWorkspaces } = useWorkspaceStore();
   const { theme, toggleTheme } = useUIStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Load user workspaces on mount
+  // Initialize Socket.IO with Bearer token
+  useEffect(() => {
+    if (accessToken) {
+      socketService.init(accessToken);
+    }
+    return () => {
+      // Don't disconnect immediately on mount/remount
+    };
+  }, [accessToken]);
+
+  // Join active workspace room via socket
+  useEffect(() => {
+    if (currentWorkspace?.id) {
+      socketService.joinWorkspace(currentWorkspace.id);
+    }
+  }, [currentWorkspace?.id]);
+
+  // Load user workspaces and unread notifications
   useEffect(() => {
     let isMounted = true;
-    const loadWorkspaces = async () => {
+    const loadInitialData = async () => {
       try {
-        const list = await workspaceService.getWorkspaces();
+        const [wsList, unread] = await Promise.all([
+          workspaceService.getWorkspaces(),
+          notificationService.getUnreadCount().catch(() => 0),
+        ]);
         if (isMounted) {
-          setWorkspaces(list);
+          setWorkspaces(wsList);
+          setUnreadCount(unread);
         }
       } catch {
         // Handled silently
       }
     };
-    loadWorkspaces();
+    loadInitialData();
+
+    // Listen for live incoming notifications
+    const handleNewNotification = (data: { title?: string; message?: string }) => {
+      setUnreadCount((prev) => prev + 1);
+      toast.info(data.title || 'New Notification', {
+        description: data.message,
+      });
+    };
+
+    socketService.on('notification:new', handleNewNotification);
+
     return () => {
       isMounted = false;
+      socketService.off('notification:new', handleNewNotification);
     };
   }, [setWorkspaces]);
 
   const handleLogout = async () => {
+    socketService.disconnect();
     await logout();
     navigate('/login');
   };
@@ -64,7 +102,7 @@ export const AppLayout: React.FC = () => {
     { label: 'Projects', path: '/projects', icon: FolderGit2 },
     { label: 'My Tasks', path: '/my-tasks', icon: CheckSquare },
     { label: 'Calendar', path: '/calendar', icon: Calendar },
-    { label: 'Notifications', path: '/notifications', icon: Bell },
+    { label: 'Notifications', path: '/notifications', icon: Bell, badge: unreadCount },
   ];
 
   return (
@@ -86,6 +124,15 @@ export const AppLayout: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            to="/notifications"
+            className="p-1.5 relative text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary-600 ring-2 ring-white dark:ring-slate-900" />
+            )}
+          </Link>
           <button
             type="button"
             onClick={toggleTheme}
@@ -215,14 +262,21 @@ export const AppLayout: React.FC = () => {
                   key={item.path}
                   to={item.path}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                     isActive
                       ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-300'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-white'
                   }`}
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </div>
+                  {typeof item.badge === 'number' && item.badge > 0 && (
+                    <span className="rounded-full bg-primary-600 text-white text-[10px] font-bold px-1.5 py-0.2 leading-tight">
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}
@@ -287,7 +341,18 @@ export const AppLayout: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/notifications"
+              className="p-2 relative rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary-600 ring-2 ring-white dark:ring-slate-900" />
+              )}
+            </Link>
+
             <Link to="/projects?create=true">
               <Button size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
                 New Project

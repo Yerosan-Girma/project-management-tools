@@ -11,6 +11,7 @@ import WorkspaceDetailPage from '../features/workspaces/pages/WorkspaceDetailPag
 import ProjectsPage from '../features/projects/pages/ProjectsPage';
 import ProjectDetailPage from '../features/projects/pages/ProjectDetailPage';
 import MyTasksPage from '../features/tasks/pages/MyTasksPage';
+import NotificationsPage from '../features/notifications/pages/NotificationsPage';
 import AcceptInvitationPage from '../features/invitations/pages/AcceptInvitationPage';
 import { GuestRoute } from '../components/layout/GuestRoute';
 import { ProtectedRoute } from '../components/layout/ProtectedRoute';
@@ -83,6 +84,10 @@ export const router = createBrowserRouter([
           {
             path: '/my-tasks',
             element: <MyTasksPage />,
+          },
+          {
+            path: '/notifications',
+            element: <NotificationsPage />,
           },
           {
             path: '/profile',

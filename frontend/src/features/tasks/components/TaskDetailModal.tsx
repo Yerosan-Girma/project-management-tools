@@ -9,6 +9,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Textarea } from '../../../components/ui/Textarea';
 import { Avatar } from '../../../components/ui/Avatar';
+import { TaskComments } from '../../comments/components/TaskComments';
 import { taskService } from '../services/task.service';
 import { Task, PriorityLevel } from '../../../types/task.types';
 import { BoardColumn } from '../../../types/board.types';
@@ -388,6 +389,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Threaded Discussion */}
+          <TaskComments taskId={task.id} />
 
           {/* Footer Delete Action */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
