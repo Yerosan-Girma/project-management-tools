@@ -27,11 +27,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     set((state) => {
       const savedId = localStorage.getItem('teamflow_active_workspace_id');
       const found = workspaces.find((w) => w.id === savedId) || workspaces[0] || null;
+      const nextWorkspace =
+        state.currentWorkspace && workspaces.some((w) => w.id === state.currentWorkspace?.id)
+          ? state.currentWorkspace
+          : found;
+      if (nextWorkspace) {
+        localStorage.setItem('teamflow_active_workspace_id', nextWorkspace.id);
+      }
       return {
         workspaces,
-        currentWorkspace: state.currentWorkspace && workspaces.some((w) => w.id === state.currentWorkspace?.id)
-          ? state.currentWorkspace
-          : found,
+        currentWorkspace: nextWorkspace,
       };
     });
   },

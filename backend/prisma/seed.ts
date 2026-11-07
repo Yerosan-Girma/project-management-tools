@@ -92,6 +92,7 @@ async function main() {
       members: {
         create: [
           { userId: alice.id, role: WorkspaceRole.OWNER },
+          { userId: adminUser.id, role: WorkspaceRole.ADMIN },
           { userId: bob.id, role: WorkspaceRole.ADMIN },
           { userId: charlie.id, role: WorkspaceRole.MEMBER }
         ]

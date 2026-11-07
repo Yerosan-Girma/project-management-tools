@@ -67,13 +67,19 @@ export class WorkspacesRepository {
   }
 
   async listUserWorkspaces(userId: string) {
-    return prisma.workspace.findMany({
-      where: {
-        deletedAt: null,
-        members: {
-          some: { userId }
-        }
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { platformRole: true }
+    });
+    const isPlatformAdmin = user?.platformRole === 'PLATFORM_ADMIN';
+
+    const whereClause: any = { deletedAt: null };
+    if (!isPlatformAdmin) {
+      whereClause.members = { some: { userId } };
+    }
+
+    const workspaces = await prisma.workspace.findMany({
+      where: whereClause,
       include: {
         members: {
           where: { userId },
@@ -87,6 +93,15 @@ export class WorkspacesRepository {
         }
       },
       orderBy: { createdAt: 'desc' }
+    });
+
+    return workspaces.map((ws) => {
+      const existingMember = ws.members[0];
+      const effectiveRole = existingMember?.role || (isPlatformAdmin ? WorkspaceRole.ADMIN : WorkspaceRole.GUEST);
+      return {
+        ...ws,
+        members: existingMember ? [existingMember] : [{ role: effectiveRole, joinedAt: ws.createdAt }]
+      };
     });
   }
 

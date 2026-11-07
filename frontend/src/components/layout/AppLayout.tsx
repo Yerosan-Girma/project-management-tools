@@ -71,6 +71,9 @@ export const AppLayout: React.FC = () => {
         ]);
         if (isMounted) {
           setWorkspaces(wsList);
+          if (!currentWorkspace && wsList.length > 0) {
+            setCurrentWorkspace(wsList[0]);
+          }
           setUnreadCount(unread);
         }
       } catch {

@@ -54,7 +54,10 @@ export const TeamPage: React.FC = () => {
 
   // Load team data
   const loadTeamData = useCallback(async () => {
-    if (!currentWorkspace?.id) return;
+    if (!currentWorkspace?.id) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const [membersData, invitesData, projData] = await Promise.all([
@@ -146,6 +149,16 @@ export const TeamPage: React.FC = () => {
       );
     });
   }, [members, roleFilter, searchQuery]);
+
+  if (!currentWorkspace) {
+    return (
+      <EmptyState
+        icon={<Users className="w-8 h-8 text-primary-500" />}
+        title="No active workspace selected"
+        description="Please select or create a workspace from the top-left switcher to view and manage team members."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
