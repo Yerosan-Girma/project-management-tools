@@ -41,6 +41,11 @@ export class UsersController {
     ApiResponse.success(res, 'User details retrieved.', user);
   };
 
+  getPlatformStats = async (_req: Request, res: Response): Promise<void> => {
+    const stats = await this.usersService.getPlatformStats();
+    ApiResponse.success(res, 'Platform statistics retrieved.', stats);
+  };
+
   updatePlatformRole = async (req: Request, res: Response): Promise<void> => {
     const updated = await this.usersService.updatePlatformRole(
       req.user!.id,

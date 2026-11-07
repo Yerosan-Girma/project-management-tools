@@ -85,4 +85,43 @@ export class UsersRepository {
       take: 20
     });
   }
+
+  async getPlatformStats() {
+    const [
+      totalUsers,
+      activeUsers,
+      suspendedUsers,
+      platformAdminsCount,
+      totalWorkspaces,
+      totalProjects,
+      totalTasks,
+      recentAuditLogs
+    ] = await Promise.all([
+      prisma.user.count({ where: { deletedAt: null } }),
+      prisma.user.count({ where: { deletedAt: null, status: UserStatus.ACTIVE } }),
+      prisma.user.count({ where: { deletedAt: null, status: UserStatus.SUSPENDED } }),
+      prisma.user.count({ where: { deletedAt: null, platformRole: PlatformRole.PLATFORM_ADMIN } }),
+      prisma.workspace.count({ where: { deletedAt: null } }),
+      prisma.project.count({ where: { deletedAt: null } }),
+      prisma.task.count({ where: { deletedAt: null } }),
+      prisma.activityLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 12,
+        include: {
+          actor: { select: { id: true, name: true, email: true, avatarUrl: true } }
+        }
+      })
+    ]);
+
+    return {
+      totalUsers,
+      activeUsers,
+      suspendedUsers,
+      platformAdminsCount,
+      totalWorkspaces,
+      totalProjects,
+      totalTasks,
+      recentAuditLogs
+    };
+  }
 }

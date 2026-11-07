@@ -75,6 +75,10 @@ export class UsersService {
     return this.usersRepo.listPlatformUsers(params);
   }
 
+  async getPlatformStats() {
+    return this.usersRepo.getPlatformStats();
+  }
+
   async getUserDetails(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId, deletedAt: null },

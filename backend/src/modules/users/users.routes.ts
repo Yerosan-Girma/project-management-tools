@@ -29,6 +29,12 @@ router.get(
 );
 
 router.get(
+  '/stats/overview',
+  requirePlatformPermission('platform:settings:manage'),
+  asyncHandler(controller.getPlatformStats)
+);
+
+router.get(
   '/:userId',
   requirePlatformPermission('platform:users:read'),
   asyncHandler(controller.getUserDetails)

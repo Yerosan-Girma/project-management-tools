@@ -16,6 +16,8 @@ import {
   Sun,
   Layers,
   Kanban,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../stores/auth-store';
@@ -281,6 +283,30 @@ export const AppLayout: React.FC = () => {
 
           {/* SCROLLABLE NAVIGATION SECTIONS */}
           <div className="flex-1 px-3 py-3 space-y-6 overflow-y-auto">
+            {/* 0. PLATFORM SUPERADMIN CONSOLE LINK (IF PLATFORM_ADMIN) */}
+            {user?.platformRole === 'PLATFORM_ADMIN' && (
+              <div className="p-2 rounded-2xl bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/80">
+                <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                  Platform Admin
+                </span>
+                <nav className="mt-1 space-y-0.5">
+                  <NavLink
+                    to="/dashboard?view=PLATFORM_ADMIN"
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                      location.pathname === '/dashboard' && location.search.includes('PLATFORM_ADMIN')
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-purple-800 dark:text-purple-200 hover:bg-purple-100/70 dark:hover:bg-purple-900/40'
+                    }`}
+                  >
+                    <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>Control Center</span>
+                  </NavLink>
+                </nav>
+              </div>
+            )}
+
             {/* 1. MAIN */}
             <div>
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -407,9 +433,16 @@ export const AppLayout: React.FC = () => {
               <div className="flex items-center gap-2.5 min-w-0">
                 <Avatar src={user?.avatarUrl} name={user?.name} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                    {user?.name || 'Account'}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                      {user?.name || 'Account'}
+                    </p>
+                    {user?.platformRole === 'PLATFORM_ADMIN' && (
+                      <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-extrabold text-[9px] uppercase tracking-wider shrink-0 border border-purple-200 dark:border-purple-800">
+                        SUPERADMIN
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
                 </div>
               </div>

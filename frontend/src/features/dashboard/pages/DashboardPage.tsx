@@ -24,6 +24,8 @@ import {
   BarChart3,
   UserPlus,
   RotateCw,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   BarChart,
@@ -59,10 +61,11 @@ import { TaskDetailModal } from '../../tasks/components/TaskDetailModal';
 import { CreateProjectModal } from '../../projects/components/CreateProjectModal';
 import { InviteMemberModal } from '../../workspaces/components/InviteMemberModal';
 import { QuickCreateTaskModal } from '../components/QuickCreateTaskModal';
+import { PlatformAdminConsole } from '../components/PlatformAdminConsole';
 
 type TaskFilterType = 'ALL' | 'PENDING' | 'DUE_SOON' | 'URGENT' | 'OVERDUE' | 'COMPLETED';
 type AnalyticsTab = 'VELOCITY' | 'STATUS' | 'PRIORITY';
-type ViewMode = 'MY_FOCUS' | 'TEAM_OVERVIEW';
+type ViewMode = 'PLATFORM_ADMIN' | 'MY_FOCUS' | 'TEAM_OVERVIEW';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -77,8 +80,16 @@ export const DashboardPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const isPlatformAdmin = user?.platformRole === 'PLATFORM_ADMIN';
+
   // View & Interactive controls
-  const [viewMode, setViewMode] = useState<ViewMode>('MY_FOCUS');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'PLATFORM_ADMIN' || user?.platformRole === 'PLATFORM_ADMIN') {
+      return 'PLATFORM_ADMIN';
+    }
+    return 'MY_FOCUS';
+  });
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>('VELOCITY');
   const [taskFilter, setTaskFilter] = useState<TaskFilterType>('ALL');
   const [taskSearch, setTaskSearch] = useState('');
@@ -365,8 +376,68 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-7 pb-10">
-      {/* 1. TOP INTERACTIVE HERO & WELCOME BANNER */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-primary-700 to-indigo-900 text-white shadow-xl shadow-indigo-950/10 border border-white/10 p-6 sm:p-8">
+      {/* 0. PLATFORM SUPERADMIN CONTROL SWITCHER */}
+      {isPlatformAdmin && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-2xl bg-purple-50/90 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 shadow-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 px-2 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-purple-600" />
+              Role View Mode:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('PLATFORM_ADMIN')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  viewMode === 'PLATFORM_ADMIN'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-900/40'
+                }`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Platform Superadmin Control</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('MY_FOCUS')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  viewMode === 'MY_FOCUS'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>Workspace My Tasks</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('TEAM_OVERVIEW')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  viewMode === 'TEAM_OVERVIEW'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <FolderGit2 className="w-3.5 h-3.5" />
+                <span>Workspace Projects & Team</span>
+              </button>
+            </div>
+          </div>
+
+          <Badge className="bg-purple-200/80 text-purple-900 dark:bg-purple-900 dark:text-purple-200 text-[10px] font-bold">
+            Root Authority
+          </Badge>
+        </div>
+      )}
+
+      {viewMode === 'PLATFORM_ADMIN' ? (
+        <PlatformAdminConsole />
+      ) : (
+        <>
+          {/* 1. TOP INTERACTIVE HERO & WELCOME BANNER */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-primary-700 to-indigo-900 text-white shadow-xl shadow-indigo-950/10 border border-white/10 p-6 sm:p-8">
         {/* Subtle background decorative glow rings */}
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
         <div className="absolute right-1/3 -bottom-10 w-48 h-48 rounded-full bg-indigo-400/10 blur-2xl pointer-events-none" />
@@ -1284,6 +1355,8 @@ export const DashboardPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      </>
+      )}
 
       {/* 7. MODALS */}
       {/* Task Detail Modal */}
