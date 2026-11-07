@@ -29,7 +29,8 @@ export class TasksController {
   };
 
   listMyTasks = async (req: Request, res: Response): Promise<void> => {
-    const tasks = await this.tasksService.listMyAssignedTasks(req.user!.id);
+    const workspaceId = req.query.workspaceId as string | undefined;
+    const tasks = await this.tasksService.listMyAssignedTasks(req.user!.id, workspaceId);
     ApiResponse.success(res, 'Assigned tasks retrieved.', tasks);
   };
 

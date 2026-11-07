@@ -60,6 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('teamflow_user');
     localStorage.removeItem('teamflow_access_token');
     localStorage.removeItem('teamflow_refresh_token');
+    localStorage.removeItem('teamflow_active_workspace_id');
     set({
       user: null,
       accessToken: null,

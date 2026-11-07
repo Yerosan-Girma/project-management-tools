@@ -1,8 +1,8 @@
 import { prisma } from '../../config/database';
-import { ProjectStatus } from '@prisma/client';
+import { ProjectStatus, WorkspaceRole } from '@prisma/client';
 
 export class AnalyticsRepository {
-  async getUserDashboardStats(userId: string) {
+  async getUserDashboardStats(userId: string, workspaceId?: string) {
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -11,14 +11,39 @@ export class AnalyticsRepository {
       where: { userId, workspace: { deletedAt: null, isArchived: false } }
     });
 
-    // 2. User projects
+    // Check user platform role & workspace membership if workspaceId is provided
+    let userWorkspaceRole: string | null = null;
+    let isWorkspaceAdminOrOwner = false;
+
+    if (workspaceId) {
+      const membership = await prisma.workspaceMember.findUnique({
+        where: { workspaceId_userId: { workspaceId, userId } }
+      });
+      if (membership) {
+        userWorkspaceRole = membership.role;
+        isWorkspaceAdminOrOwner =
+          membership.role === WorkspaceRole.OWNER || membership.role === WorkspaceRole.ADMIN;
+      }
+    }
+
+    // 2. User accessible projects
+    const projectWhere: any = {
+      deletedAt: null,
+      isArchived: false
+    };
+
+    if (workspaceId) {
+      projectWhere.workspaceId = workspaceId;
+      if (!isWorkspaceAdminOrOwner) {
+        projectWhere.members = { some: { userId } };
+      }
+    } else {
+      projectWhere.members = { some: { userId } };
+    }
+
     const userProjects = await prisma.project.findMany({
-      where: {
-        deletedAt: null,
-        isArchived: false,
-        members: { some: { userId } }
-      },
-      select: { id: true, status: true }
+      where: projectWhere,
+      select: { id: true, status: true, priority: true }
     });
 
     const totalProjects = userProjects.length;
@@ -26,13 +51,19 @@ export class AnalyticsRepository {
     const projectIds = userProjects.map((p) => p.id);
 
     // 3. User assigned tasks
+    const taskWhere: any = {
+      deletedAt: null,
+      isArchived: false,
+      assignees: { some: { userId } }
+    };
+    if (workspaceId) {
+      taskWhere.project = { workspaceId, deletedAt: null, isArchived: false };
+    } else if (projectIds.length > 0) {
+      taskWhere.projectId = { in: projectIds };
+    }
+
     const userAssignedTasks = await prisma.task.findMany({
-      where: {
-        projectId: { in: projectIds },
-        deletedAt: null,
-        isArchived: false,
-        assignees: { some: { userId } }
-      },
+      where: taskWhere,
       include: {
         column: { select: { isCompletedColumn: true } }
       }
@@ -50,6 +81,46 @@ export class AnalyticsRepository {
       (t) => !t.column.isCompletedColumn && t.dueDate && t.dueDate >= now && t.dueDate <= tomorrow
     ).length;
 
+    // Priority breakdown of assigned tasks
+    const priorityDistribution: Record<string, number> = {
+      LOW: 0,
+      MEDIUM: 0,
+      HIGH: 0,
+      URGENT: 0
+    };
+    for (const t of userAssignedTasks) {
+      if (priorityDistribution[t.priority] !== undefined) {
+        priorityDistribution[t.priority]++;
+      }
+    }
+
+    // Team stats for the active workspace (or all accessible projects)
+    const teamTasksWhere: any = {
+      deletedAt: null,
+      isArchived: false
+    };
+    if (workspaceId) {
+      teamTasksWhere.project = { workspaceId, deletedAt: null, isArchived: false };
+    } else if (projectIds.length > 0) {
+      teamTasksWhere.projectId = { in: projectIds };
+    }
+
+    const [teamTasks, teamMemberCount] = await Promise.all([
+      prisma.task.findMany({
+        where: teamTasksWhere,
+        include: { column: { select: { isCompletedColumn: true } } }
+      }),
+      workspaceId
+        ? prisma.workspaceMember.count({ where: { workspaceId } })
+        : Promise.resolve(0)
+    ]);
+
+    const teamCompleted = teamTasks.filter((t) => t.column.isCompletedColumn).length;
+    const teamPending = teamTasks.length - teamCompleted;
+    const teamOverdue = teamTasks.filter(
+      (t) => !t.column.isCompletedColumn && t.dueDate && t.dueDate < now
+    ).length;
+
     return {
       workspacesCount,
       projects: {
@@ -62,6 +133,20 @@ export class AnalyticsRepository {
         pending: pendingTasks,
         overdue: overdueTasks,
         upcomingWithin24h: upcomingDeadlines
+      },
+      userRole: userWorkspaceRole,
+      isWorkspaceAdminOrOwner,
+      priorityDistribution,
+      completionVelocityPercent:
+        totalAssignedTasks > 0 ? Math.round((completedTasks / totalAssignedTasks) * 100) : 0,
+      teamStats: {
+        totalTasks: teamTasks.length,
+        completedTasks: teamCompleted,
+        pendingTasks: teamPending,
+        overdueTasks: teamOverdue,
+        totalMembers: teamMemberCount,
+        completionPercentage:
+          teamTasks.length > 0 ? Math.round((teamCompleted / teamTasks.length) * 100) : 0
       }
     };
   }

@@ -5,8 +5,8 @@ import { AppError } from '../../utils/app-error';
 export class AnalyticsService {
   constructor(private readonly analyticsRepo: AnalyticsRepository = new AnalyticsRepository()) {}
 
-  async getUserDashboardStats(userId: string) {
-    return this.analyticsRepo.getUserDashboardStats(userId);
+  async getUserDashboardStats(userId: string, workspaceId?: string) {
+    return this.analyticsRepo.getUserDashboardStats(userId, workspaceId);
   }
 
   async getProjectAnalytics(projectId: string) {

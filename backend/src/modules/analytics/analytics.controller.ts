@@ -6,7 +6,8 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService = new AnalyticsService()) {}
 
   getDashboardStats = async (req: Request, res: Response): Promise<void> => {
-    const stats = await this.analyticsService.getUserDashboardStats(req.user!.id);
+    const workspaceId = req.query.workspaceId as string | undefined;
+    const stats = await this.analyticsService.getUserDashboardStats(req.user!.id, workspaceId);
     ApiResponse.success(res, 'Dashboard metrics retrieved.', stats);
   };
 

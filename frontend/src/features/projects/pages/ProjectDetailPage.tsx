@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Kanban,
   BarChart2,
@@ -9,10 +9,19 @@ import {
   Loader2,
   Trash2,
   UserPlus,
+  Plus,
+  ListTodo,
+  CheckCircle2,
+  Circle,
+  Calendar,
+  Search,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { projectService } from '../services/project.service';
 import { workspaceService } from '../../workspaces/services/workspace.service';
+import { boardService } from '../../boards/services/board.service';
+import { taskService } from '../../tasks/services/task.service';
 import {
   Project,
   ProjectOverview,
@@ -23,6 +32,8 @@ import {
 } from '../../../types/project.types';
 import { Activity } from '../../../types/activity.types';
 import { WorkspaceMember } from '../../../types/workspace.types';
+import { Board, BoardColumn } from '../../../types/board.types';
+import { Task } from '../../../types/task.types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -33,6 +44,8 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { Modal } from '../../../components/ui/Modal';
 import { Tabs } from '../../../components/ui/Tabs';
 import { KanbanBoard } from '../../boards/components/KanbanBoard';
+import { CreateTaskModal } from '../../tasks/components/CreateTaskModal';
+import { TaskDetailModal } from '../../tasks/components/TaskDetailModal';
 
 export const ProjectDetailPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -45,7 +58,19 @@ export const ProjectDetailPage: React.FC = () => {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Search & Filter for List view
+  const [listSearch, setListSearch] = useState('');
+  const [listPriorityFilter, setListPriorityFilter] = useState('ALL');
+
+  // Modals state
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [createTaskColumnId, setCreateTaskColumnId] = useState<string | undefined>();
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
 
   // Settings form
   const [name, setName] = useState('');
@@ -60,11 +85,16 @@ export const ProjectDetailPage: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedRole, setSelectedRole] = useState<ProjectRole>('MEMBER');
 
-  const loadProject = useCallback(async () => {
+  const loadProjectData = useCallback(async () => {
     if (!projectId) return;
     try {
       setIsLoading(true);
-      const proj = await projectService.getProject(projectId);
+      const [proj, boardsData, tasksData] = await Promise.all([
+        projectService.getProject(projectId),
+        boardService.getProjectBoards(projectId),
+        taskService.getProjectTasks(projectId),
+      ]);
+
       setProject(proj);
       setName(proj.name);
       setDescription(proj.description || '');
@@ -72,22 +102,24 @@ export const ProjectDetailPage: React.FC = () => {
       setPriority(proj.priority);
       setTargetDate(proj.targetDate ? proj.targetDate.slice(0, 10) : '');
       setMembers(proj.members || []);
+      setBoards(boardsData);
+      setTasks(tasksData);
 
-      // If workspace id is present, load workspace members for addition
+      // Load workspace members for the Add Member modal
       if (proj.workspaceId) {
         const wsMembers = await workspaceService.getMembers(proj.workspaceId);
         setWorkspaceMembers(wsMembers.items || []);
       }
     } catch {
-      toast.error('Failed to load project');
+      toast.error('Failed to load project details');
     } finally {
       setIsLoading(false);
     }
   }, [projectId]);
 
   useEffect(() => {
-    loadProject();
-  }, [loadProject]);
+    loadProjectData();
+  }, [loadProjectData]);
 
   // Load tab-specific data on tab switch
   useEffect(() => {
@@ -96,11 +128,49 @@ export const ProjectDetailPage: React.FC = () => {
       projectService.getProjectOverview(projectId).then(setOverview).catch(() => {});
     } else if (currentTab === 'activity') {
       projectService.getProjectActivity(projectId).then(setActivities).catch(() => {});
+    } else if (currentTab === 'list' || currentTab === 'board') {
+      taskService.getProjectTasks(projectId).then(setTasks).catch(() => {});
     }
   }, [projectId, currentTab]);
 
   const handleTabChange = (tabId: string) => {
     setSearchParams({ tab: tabId });
+  };
+
+  const primaryBoard = boards[0] || null;
+  const columns: BoardColumn[] = useMemo(() => {
+    if (!primaryBoard?.columns) return [];
+    return [...primaryBoard.columns].sort((a, b) => a.position - b.position);
+  }, [primaryBoard]);
+
+  // Toggle completion in list view
+  const handleToggleTaskCompletion = async (task: Task, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const completedCol = columns.find((c) => c.isCompletedColumn || c.name.toLowerCase().includes('done') || c.name.toLowerCase().includes('completed'));
+    const defaultCol = columns.find((c) => !c.isCompletedColumn && !c.name.toLowerCase().includes('done')) || columns[0];
+
+    const isCurrentlyCompleted = !!task.completedAt || task.boardColumnId === completedCol?.id;
+    const targetColId = isCurrentlyCompleted ? defaultCol?.id : completedCol?.id;
+
+    if (!targetColId) return;
+
+    try {
+      await taskService.moveTask(task.id, targetColId, 0);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? {
+                ...t,
+                boardColumnId: targetColId,
+                completedAt: isCurrentlyCompleted ? null : new Date().toISOString(),
+              }
+            : t
+        )
+      );
+      toast.success(isCurrentlyCompleted ? 'Task marked incomplete' : 'Task completed!');
+    } catch {
+      toast.error('Failed to update task status');
+    }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -144,7 +214,7 @@ export const ProjectDetailPage: React.FC = () => {
       await projectService.addProjectMember(project.id, selectedUserId, selectedRole);
       toast.success('Member assigned to project');
       setIsAddMemberOpen(false);
-      loadProject();
+      loadProjectData();
     } catch {
       toast.error('Failed to add project member');
     }
@@ -175,17 +245,56 @@ export const ProjectDetailPage: React.FC = () => {
     }
   };
 
+  const handleOpenCreateTask = (columnId?: string) => {
+    setCreateTaskColumnId(columnId || columns[0]?.id);
+    setIsCreateTaskOpen(true);
+  };
+
+  const handleOpenTaskDetail = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsTaskDetailOpen(true);
+  };
+
+  const getPriorityVariant = (pri: PriorityLevel) => {
+    switch (pri) {
+      case 'URGENT':
+        return 'danger';
+      case 'HIGH':
+        return 'warning';
+      case 'MEDIUM':
+        return 'primary';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusVariant = (st: ProjectStatus) => {
+    switch (st) {
+      case 'ACTIVE':
+        return 'success';
+      case 'COMPLETED':
+        return 'info';
+      case 'ON_HOLD':
+        return 'warning';
+      case 'ARCHIVED':
+        return 'default';
+      default:
+        return 'outline';
+    }
+  };
+
   if (isLoading || !project) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-slate-500">
+      <div className="flex flex-col items-center justify-center p-16 text-slate-500">
         <Loader2 className="w-8 h-8 animate-spin text-primary-600 mb-2" />
-        <span className="text-xs">Loading project details...</span>
+        <span className="text-xs">Loading project workspace...</span>
       </div>
     );
   }
 
   const tabsList = [
     { id: 'board', label: 'Kanban Board', icon: <Kanban className="w-4 h-4" /> },
+    { id: 'list', label: 'List View', icon: <ListTodo className="w-4 h-4" />, count: tasks.length },
     { id: 'overview', label: 'Overview', icon: <BarChart2 className="w-4 h-4" /> },
     { id: 'members', label: 'Members', icon: <Users className="w-4 h-4" />, count: members.length },
     { id: 'activity', label: 'Activity', icon: <History className="w-4 h-4" /> },
@@ -197,63 +306,110 @@ export const ProjectDetailPage: React.FC = () => {
     (wm) => !members.some((pm) => pm.userId === wm.userId)
   );
 
+  // Filter tasks for the List view
+  const filteredListTasks = tasks.filter((t) => {
+    if (listPriorityFilter !== 'ALL' && t.priority !== listPriorityFilter) return false;
+    if (listSearch.trim()) {
+      const q = listSearch.toLowerCase();
+      return (
+        t.title.toLowerCase().includes(q) ||
+        (t.description && t.description.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-6">
-      {/* Project Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
-              {project.key}
-            </span>
-            <Badge variant="outline" size="sm">
-              {project.status}
-            </Badge>
-            <Badge variant="primary" size="sm">
-              {project.priority}
-            </Badge>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            {project.name}
-          </h1>
-          {project.description && (
-            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{project.description}</p>
-          )}
+      {/* Breadcrumb & Project Header */}
+      <div className="space-y-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Link
+            to="/projects"
+            className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Projects</span>
+          </Link>
+          <span>/</span>
+          <span className="font-semibold text-slate-900 dark:text-white">{project.name}</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex -space-x-2">
-            {members.slice(0, 4).map((m) => (
-              <Avatar
-                key={m.id}
-                src={m.user?.avatarUrl}
-                name={m.user?.name}
-                size="sm"
-                className="ring-2 ring-white dark:ring-slate-900"
-              />
-            ))}
-            {members.length > 4 && (
-              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-xs font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
-                +{members.length - 4}
-              </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                {project.key}
+              </span>
+              <Badge variant={getStatusVariant(project.status)} size="sm">
+                {project.status}
+              </Badge>
+              <Badge variant={getPriorityVariant(project.priority)} size="sm">
+                {project.priority}
+              </Badge>
+              {project.targetDate && (
+                <span className="flex items-center gap-1 text-[11px] text-slate-500 ml-1">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  Due {new Date(project.targetDate).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              {project.name}
+            </h1>
+            {project.description && (
+              <p className="text-xs text-slate-500 mt-1 max-w-2xl">{project.description}</p>
             )}
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsAddMemberOpen(true)}
-            leftIcon={<UserPlus className="w-3.5 h-3.5" />}
-          >
-            Assign
-          </Button>
+          {/* Header Actions */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Teammate Avatars */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex -space-x-1.5 overflow-hidden">
+                {members.slice(0, 4).map((m) => (
+                  <Avatar
+                    key={m.id}
+                    src={m.user?.avatarUrl}
+                    name={m.user?.name}
+                    size="xs"
+                    className="ring-2 ring-white dark:ring-slate-900"
+                  />
+                ))}
+              </div>
+              {members.length > 4 && (
+                <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
+                  +{members.length - 4}
+                </span>
+              )}
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsAddMemberOpen(true)}
+              leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+            >
+              Assign
+            </Button>
+
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => handleOpenCreateTask()}
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              New Task
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
       <Tabs tabs={tabsList} activeTab={currentTab} onChange={handleTabChange} />
 
-      {/* Tab 1: Board View */}
+      {/* TAB 1: KANBAN BOARD */}
       {currentTab === 'board' && (
         <KanbanBoard
           projectId={project.id}
@@ -262,7 +418,180 @@ export const ProjectDetailPage: React.FC = () => {
         />
       )}
 
-      {/* Tab 2: Overview */}
+      {/* TAB 2: STRUCTURED LIST VIEW */}
+      {currentTab === 'list' && (
+        <div className="space-y-4">
+          {/* List Controls */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex-1 max-w-md">
+              <Input
+                placeholder="Filter tasks in this project..."
+                value={listSearch}
+                onChange={(e) => setListSearch(e.target.value)}
+                startIcon={<Search className="w-4 h-4 text-slate-400" />}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-36">
+                <Select
+                  value={listPriorityFilter}
+                  onChange={(e) => setListPriorityFilter(e.target.value)}
+                  options={[
+                    { value: 'ALL', label: 'All Priorities' },
+                    { value: 'LOW', label: 'Low' },
+                    { value: 'MEDIUM', label: 'Medium' },
+                    { value: 'HIGH', label: 'High' },
+                    { value: 'URGENT', label: 'Urgent' },
+                  ]}
+                />
+              </div>
+
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => handleOpenCreateTask()}
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                Add Task
+              </Button>
+            </div>
+          </div>
+
+          {/* Grouped Columns List */}
+          {columns.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+              <p className="text-sm font-semibold">No board columns configured for this project.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {columns.map((col) => {
+                const columnTasks = filteredListTasks.filter(
+                  (t) => (t.boardColumnId || t.columnId) === col.id
+                );
+
+                return (
+                  <div
+                    key={col.id}
+                    className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-xs"
+                  >
+                    {/* Column Group Header */}
+                    <div className="px-4 py-2.5 bg-slate-50/75 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: col.color || '#6366f1' }}
+                        />
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                          {col.name}
+                        </span>
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          {columnTasks.length}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCreateTask(col.id)}
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        title={`Add task to ${col.name}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Task Rows */}
+                    {columnTasks.length === 0 ? (
+                      <div className="px-4 py-3 text-xs text-slate-400 italic flex items-center justify-between">
+                        <span>No tasks in {col.name.toLowerCase()}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCreateTask(col.id)}
+                          className="text-primary-600 dark:text-primary-400 hover:underline text-[11px] not-italic font-medium"
+                        >
+                          + Add a task
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                        {columnTasks.map((t) => {
+                          const isCompleted = !!t.completedAt || col.isCompletedColumn;
+
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={() => handleOpenTaskDetail(t.id)}
+                              className="group px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleToggleTaskCompletion(t, e)}
+                                  className="text-slate-400 hover:text-emerald-500 transition-colors shrink-0"
+                                >
+                                  {isCompleted ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
+                                  ) : (
+                                    <Circle className="w-4 h-4 text-slate-300 hover:text-slate-500" />
+                                  )}
+                                </button>
+
+                                <div className="min-w-0">
+                                  <span
+                                    className={`text-xs font-semibold block truncate ${
+                                      isCompleted
+                                        ? 'line-through text-slate-400 dark:text-slate-500'
+                                        : 'text-slate-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors'
+                                    }`}
+                                  >
+                                    {t.title}
+                                  </span>
+                                  {t.description && (
+                                    <p className="text-[11px] text-slate-500 truncate max-w-md">
+                                      {t.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3 shrink-0">
+                                <Badge variant={getPriorityVariant(t.priority)} size="sm">
+                                  {t.priority}
+                                </Badge>
+
+                                {t.dueDate && (
+                                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                    {new Date(t.dueDate).toLocaleDateString()}
+                                  </span>
+                                )}
+
+                                <div className="flex -space-x-1.5 overflow-hidden">
+                                  {(t.assignees || []).map((a) => (
+                                    <Avatar
+                                      key={a.id}
+                                      src={a.user?.avatarUrl}
+                                      name={a.user?.name}
+                                      size="xs"
+                                      className="ring-2 ring-white dark:ring-slate-900"
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: OVERVIEW */}
       {currentTab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -270,7 +599,7 @@ export const ProjectDetailPage: React.FC = () => {
               <CardContent className="pt-4">
                 <span className="text-xs text-slate-500">Total Deliverables</span>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {overview?.totalTasks ?? 0}
+                  {overview?.totalTasks ?? tasks.length}
                 </p>
               </CardContent>
             </Card>
@@ -323,7 +652,7 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Members */}
+      {/* TAB 4: MEMBERS */}
       {currentTab === 'members' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -375,7 +704,7 @@ export const ProjectDetailPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Tab 4: Activity */}
+      {/* TAB 5: ACTIVITY */}
       {currentTab === 'activity' && (
         <Card>
           <CardHeader>
@@ -409,7 +738,7 @@ export const ProjectDetailPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Tab 5: Settings */}
+      {/* TAB 6: SETTINGS */}
       {currentTab === 'settings' && (
         <div className="space-y-6">
           <Card>
@@ -503,6 +832,35 @@ export const ProjectDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Task Creation Modal */}
+      {isCreateTaskOpen && (
+        <CreateTaskModal
+          isOpen={isCreateTaskOpen}
+          onClose={() => setIsCreateTaskOpen(false)}
+          projectId={project.id}
+          columns={columns}
+          defaultColumnId={createTaskColumnId}
+          projectMembers={members}
+          onCreated={loadProjectData}
+        />
+      )}
+
+      {/* Task Detail Modal */}
+      {isTaskDetailOpen && (
+        <TaskDetailModal
+          taskId={selectedTaskId}
+          isOpen={isTaskDetailOpen}
+          onClose={() => {
+            setIsTaskDetailOpen(false);
+            setSelectedTaskId(null);
+          }}
+          columns={columns}
+          projectMembers={members}
+          onTaskUpdated={loadProjectData}
+          onTaskDeleted={loadProjectData}
+        />
       )}
 
       {/* Add Project Member Modal */}

@@ -37,7 +37,8 @@ export const CalendarPage: React.FC = () => {
     try {
       setIsLoading(true);
       const res = await taskService.getMyTasks({ limit: 100 });
-      setTasks(res.items || []);
+      const list = Array.isArray(res) ? res : (res?.items || []);
+      setTasks(list);
     } catch {
       toast.error('Failed to load deadline calendar');
     } finally {

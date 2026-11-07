@@ -13,6 +13,18 @@ export interface UserDashboardStats {
     overdue: number;
     upcomingWithin24h: number;
   };
+  userRole?: string | null;
+  isWorkspaceAdminOrOwner?: boolean;
+  priorityDistribution?: Record<string, number>;
+  completionVelocityPercent?: number;
+  teamStats?: {
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    overdueTasks: number;
+    totalMembers: number;
+    completionPercentage: number;
+  };
 }
 
 export type DashboardStats = UserDashboardStats;

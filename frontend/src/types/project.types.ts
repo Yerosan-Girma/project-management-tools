@@ -27,6 +27,7 @@ export interface Project {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  creator?: User;
   members?: ProjectMember[];
   boards?: Board[];
   _count?: {

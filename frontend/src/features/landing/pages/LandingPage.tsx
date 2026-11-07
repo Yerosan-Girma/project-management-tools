@@ -1,10 +1,11 @@
 import React from 'react';
 import { LandingNavbar } from '../components/LandingNavbar';
 import { HeroSection } from '../components/HeroSection';
-import { FeaturesSection } from '../components/FeaturesSection';
 import { ProductPreview } from '../components/ProductPreview';
+import { FeaturesSection } from '../components/FeaturesSection';
 import { HowItWorksSection } from '../components/HowItWorksSection';
 import { FaqSection } from '../components/FaqSection';
+import { FinalCtaSection } from '../components/FinalCtaSection';
 import { LandingFooter } from '../components/LandingFooter';
 
 export const LandingPage: React.FC = () => {
@@ -13,10 +14,11 @@ export const LandingPage: React.FC = () => {
       <LandingNavbar />
       <main className="flex-1">
         <HeroSection />
-        <FeaturesSection />
         <ProductPreview />
+        <FeaturesSection />
         <HowItWorksSection />
         <FaqSection />
+        <FinalCtaSection />
       </main>
       <LandingFooter />
     </div>

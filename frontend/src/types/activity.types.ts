@@ -14,6 +14,11 @@ export interface ActivityLog {
   actor?: User;
   user?: User;
   task?: Task;
+  project?: {
+    id: string;
+    name: string;
+    key: string;
+  } | null;
 }
 
 export type Activity = ActivityLog;

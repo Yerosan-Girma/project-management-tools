@@ -176,15 +176,25 @@ export class TasksRepository {
     return { total, items };
   }
 
-  async listMyAssignedTasks(userId: string) {
-    return prisma.task.findMany({
-      where: {
+  async listMyAssignedTasks(userId: string, workspaceId?: string) {
+    const whereClause: any = {
+      deletedAt: null,
+      isArchived: false,
+      assignees: {
+        some: { userId }
+      }
+    };
+
+    if (workspaceId) {
+      whereClause.project = {
+        workspaceId,
         deletedAt: null,
-        isArchived: false,
-        assignees: {
-          some: { userId }
-        }
-      },
+        isArchived: false
+      };
+    }
+
+    return prisma.task.findMany({
+      where: whereClause,
       include: {
         project: {
           select: { id: true, name: true, key: true, workspaceId: true }

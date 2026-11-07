@@ -115,8 +115,8 @@ export class TasksService {
     return this.tasksRepo.listProjectTasks(projectId, filters, skip, take);
   }
 
-  async listMyAssignedTasks(userId: string) {
-    return this.tasksRepo.listMyAssignedTasks(userId);
+  async listMyAssignedTasks(userId: string, workspaceId?: string) {
+    return this.tasksRepo.listMyAssignedTasks(userId, workspaceId);
   }
 
   async updateTask(taskId: string, userId: string, input: UpdateTaskInput) {

@@ -34,8 +34,9 @@ export const taskService = {
     limit?: number;
     status?: string;
     priority?: PriorityLevel;
-  }): Promise<PaginatedResult<Task>> {
-    const response = await api.get<ApiResponse<PaginatedResult<Task>>>('/tasks/my-assigned', {
+    workspaceId?: string;
+  }): Promise<Task[] | PaginatedResult<Task>> {
+    const response = await api.get<ApiResponse<Task[] | PaginatedResult<Task>>>('/tasks/my-assigned', {
       params,
     });
     return response.data.data;

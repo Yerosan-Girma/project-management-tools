@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Building2,
   FolderGit2,
   CheckSquare,
-  Calendar,
+  Users,
   Bell,
-  User,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -16,25 +15,34 @@ import {
   Moon,
   Sun,
   Layers,
+  Kanban,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../stores/auth-store';
 import { useWorkspaceStore } from '../../stores/workspace-store';
 import { useUIStore } from '../../stores/ui-store';
 import { workspaceService } from '../../features/workspaces/services/workspace.service';
+import { projectService } from '../../features/projects/services/project.service';
 import { notificationService } from '../../features/notifications/services/notification.service';
 import { socketService } from '../../services/socket';
+import { Project } from '../../types/project.types';
 import { Avatar } from '../ui/Avatar';
-import { Button } from '../ui/Button';
+import { CreateProjectModal } from '../../features/projects/components/CreateProjectModal';
+import { CreateWorkspaceModal } from '../../features/workspaces/components/CreateWorkspaceModal';
 
 export const AppLayout: React.FC = () => {
   const { user, accessToken, logout } = useAuthStore();
   const { workspaces, currentWorkspace, setCurrentWorkspace, setWorkspaces } = useWorkspaceStore();
   const { theme, toggleTheme } = useUIStore();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [sidebarProjects, setSidebarProjects] = useState<Project[]>([]);
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -43,9 +51,6 @@ export const AppLayout: React.FC = () => {
     if (accessToken) {
       socketService.init(accessToken);
     }
-    return () => {
-      // Don't disconnect immediately on mount/remount
-    };
   }, [accessToken]);
 
   // Join active workspace room via socket
@@ -74,7 +79,7 @@ export const AppLayout: React.FC = () => {
     };
     loadInitialData();
 
-    // Listen for live incoming notifications
+    // Listen for live notifications
     const handleNewNotification = (data: { title?: string; message?: string }) => {
       setUnreadCount((prev) => prev + 1);
       toast.info(data.title || 'New Notification', {
@@ -90,19 +95,42 @@ export const AppLayout: React.FC = () => {
     };
   }, [setWorkspaces]);
 
+  // Fetch quick projects for sidebar when currentWorkspace changes
+  useEffect(() => {
+    let isMounted = true;
+    if (currentWorkspace?.id) {
+      projectService
+        .getWorkspaceProjects(currentWorkspace.id)
+        .then((data) => {
+          if (isMounted) setSidebarProjects(data.slice(0, 6));
+        })
+        .catch(() => {
+          if (isMounted) setSidebarProjects([]);
+        });
+    } else {
+      setSidebarProjects([]);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [currentWorkspace?.id]);
+
   const handleLogout = async () => {
     socketService.disconnect();
-    await logout();
+    logout();
     navigate('/login');
   };
 
-  const navItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { label: 'Workspaces', path: '/workspaces', icon: Building2 },
-    { label: 'Projects', path: '/projects', icon: FolderGit2 },
+  const mainNavItems = [
+    { label: 'Overview', path: '/dashboard', icon: LayoutDashboard },
     { label: 'My Tasks', path: '/my-tasks', icon: CheckSquare },
-    { label: 'Calendar', path: '/calendar', icon: Calendar },
+    { label: 'Projects', path: '/projects', icon: FolderGit2 },
+    { label: 'Team', path: '/team', icon: Users },
+  ];
+
+  const personalNavItems = [
     { label: 'Notifications', path: '/notifications', icon: Bell, badge: unreadCount },
+    { label: 'Settings', path: '/settings', icon: Settings },
   ];
 
   return (
@@ -123,7 +151,7 @@ export const AppLayout: React.FC = () => {
           </Link>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Link
             to="/notifications"
             className="p-1.5 relative text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
@@ -140,7 +168,7 @@ export const AppLayout: React.FC = () => {
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
-          <Link to="/profile">
+          <Link to="/settings?tab=profile">
             <Avatar src={user?.avatarUrl} name={user?.name} size="xs" />
           </Link>
         </div>
@@ -149,20 +177,20 @@ export const AppLayout: React.FC = () => {
       {/* Sidebar Backdrop on Mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs md:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Main Sidebar */}
+      {/* Main Persistent Sidebar */}
       <aside
-        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-20 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
+        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-20 w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full overflow-hidden">
           {/* Brand header */}
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between shrink-0">
             <Link to="/dashboard" className="flex items-center gap-2.5">
               <img src="/logo/teamflow.svg" alt="TeamFlow" className="w-7 h-7" />
               <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">
@@ -174,30 +202,30 @@ export const AppLayout: React.FC = () => {
                 type="button"
                 onClick={toggleTheme}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
-                title="Toggle theme"
+                title="Toggle appearance theme"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
-          {/* Workspace Switcher */}
-          <div className="p-3 relative">
+          {/* WORKSPACE SELECTOR */}
+          <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 relative shrink-0">
             <button
               type="button"
               onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
-              className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 transition-colors text-left"
+              className="w-full flex items-center justify-between p-2 rounded-xl border border-slate-200/70 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-primary-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                  {currentWorkspace?.name ? currentWorkspace.name.substring(0, 2).toUpperCase() : 'TF'}
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-primary-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                  {currentWorkspace?.name ? currentWorkspace.name.charAt(0).toUpperCase() : 'W'}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                     {currentWorkspace?.name || 'Select Workspace'}
                   </p>
-                  <p className="text-[10px] text-slate-500 truncate">
-                    {currentWorkspace?._count?.projects ?? 0} projects
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {sidebarProjects.length} project{sidebarProjects.length === 1 ? '' : 's'}
                   </p>
                 </div>
               </div>
@@ -207,10 +235,7 @@ export const AppLayout: React.FC = () => {
             {/* Dropdown Menu */}
             {workspaceMenuOpen && (
               <>
-                <div
-                  className="fixed inset-0 z-30"
-                  onClick={() => setWorkspaceMenuOpen(false)}
-                />
+                <div className="fixed inset-0 z-30" onClick={() => setWorkspaceMenuOpen(false)} />
                 <div className="absolute left-3 right-3 top-full mt-1 z-40 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 space-y-1">
                   <div className="max-h-48 overflow-y-auto space-y-0.5">
                     {workspaces.map((ws) => (
@@ -234,56 +259,143 @@ export const AppLayout: React.FC = () => {
                   </div>
 
                   <div className="border-t border-slate-100 dark:border-slate-800 pt-1">
-                    <Link
-                      to="/workspaces?create=true"
-                      onClick={() => setWorkspaceMenuOpen(false)}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWorkspaceMenuOpen(false);
+                        setIsCreateWorkspaceOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Create New Workspace</span>
-                    </Link>
+                      <span>New Workspace</span>
+                    </button>
                   </div>
                 </div>
               </>
             )}
           </div>
 
-          {/* Navigation Links */}
-          <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                item.path === '/dashboard'
-                  ? location.pathname === '/dashboard'
-                  : location.pathname.startsWith(item.path);
+          {/* SCROLLABLE NAVIGATION SECTIONS */}
+          <div className="flex-1 px-3 py-3 space-y-6 overflow-y-auto">
+            {/* 1. MAIN */}
+            <div>
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Main
+              </span>
+              <nav className="mt-1 space-y-0.5">
+                {mainNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive =
+                    item.path === '/dashboard'
+                      ? location.pathname === '/dashboard' || location.pathname === '/app'
+                      : location.pathname.startsWith(item.path);
 
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-300'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-white'
-                  }`}
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-300 font-bold'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-white'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* 2. WORKSPACE PROJECTS */}
+            <div>
+              <div className="flex items-center justify-between px-3 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Projects
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateProjectOpen(true)}
+                  title="Create new project"
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span>{item.label}</span>
-                  </div>
-                  {typeof item.badge === 'number' && item.badge > 0 && (
-                    <span className="rounded-full bg-primary-600 text-white text-[10px] font-bold px-1.5 py-0.2 leading-tight">
-                      {item.badge}
-                    </span>
-                  )}
-                </NavLink>
-              );
-            })}
-          </nav>
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
-          {/* User profile footer */}
-          <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 relative">
+              <div className="space-y-0.5">
+                {sidebarProjects.length === 0 ? (
+                  <p className="px-3 py-1.5 text-[11px] text-slate-400 italic">No projects yet</p>
+                ) : (
+                  sidebarProjects.map((p) => {
+                    const isProjActive = location.pathname.includes(`/projects/${p.id}`);
+                    return (
+                      <NavLink
+                        key={p.id}
+                        to={`/projects/${p.id}`}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                          isProjActive
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-semibold'
+                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+                            {p.key}
+                          </span>
+                          <span className="truncate">{p.name}</span>
+                        </div>
+                        <Kanban className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 shrink-0" />
+                      </NavLink>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* 3. PERSONAL */}
+            <div>
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Personal
+              </span>
+              <nav className="mt-1 space-y-0.5">
+                {personalNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname.startsWith(item.path);
+
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-300 font-bold'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </div>
+                      {typeof item.badge === 'number' && item.badge > 0 && (
+                        <span className="rounded-full bg-primary-600 text-white text-[10px] font-bold px-1.5 py-0.2 leading-tight">
+                          {item.badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+
+          {/* USER PROFILE FOOTER */}
+          <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 relative shrink-0">
             <button
               type="button"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -295,32 +407,32 @@ export const AppLayout: React.FC = () => {
                   <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                     {user?.name || 'Account'}
                   </p>
-                  <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
                 </div>
               </div>
-              <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+              <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
             </button>
 
-            {/* User Dropdown Menu */}
+            {/* Profile Popover Menu */}
             {userMenuOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setUserMenuOpen(false)} />
-                <div className="absolute left-3 right-3 bottom-full mb-1 z-40 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 space-y-1">
+                <div className="absolute left-3 right-3 bottom-full mb-1.5 z-40 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 space-y-1">
                   <Link
-                    to="/profile"
+                    to="/settings?tab=profile"
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
-                    <User className="w-3.5 h-3.5" />
-                    Profile & Settings
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>Account Settings</span>
                   </Link>
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    Sign Out
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </>
@@ -330,42 +442,30 @@ export const AppLayout: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto max-h-screen">
-        {/* Top Header on Desktop */}
-        <header className="hidden md:flex items-center justify-between px-8 py-3.5 border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/80 sticky top-0 z-20">
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <span className="text-slate-400">TeamFlow</span>
-            <span>/</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
-              {location.pathname.split('/')[1] || 'Dashboard'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link
-              to="/notifications"
-              className="p-2 relative rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary-600 ring-2 ring-white dark:ring-slate-900" />
-              )}
-            </Link>
-
-            <Link to="/projects?create=true">
-              <Button size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
-                New Project
-              </Button>
-            </Link>
-          </div>
-        </header>
-
-        {/* Page Outlet */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 min-w-0 overflow-y-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
+
+      {/* Global Modals for Quick Creation from Sidebar */}
+      <CreateProjectModal
+        isOpen={isCreateProjectOpen}
+        onClose={() => setIsCreateProjectOpen(false)}
+        onCreated={() => {
+          if (currentWorkspace?.id) {
+            projectService.getWorkspaceProjects(currentWorkspace.id).then(setSidebarProjects);
+          }
+        }}
+      />
+
+      <CreateWorkspaceModal
+        isOpen={isCreateWorkspaceOpen}
+        onClose={() => setIsCreateWorkspaceOpen(false)}
+        onCreated={() => {
+          workspaceService.getWorkspaces().then(setWorkspaces);
+        }}
+      />
     </div>
   );
 };

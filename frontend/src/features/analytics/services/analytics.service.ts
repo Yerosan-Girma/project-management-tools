@@ -3,8 +3,10 @@ import { ApiResponse } from '../../../types/api.types';
 import { UserDashboardStats, ProjectAnalytics, ProjectReport } from '../../../types/analytics.types';
 
 export const analyticsService = {
-  async getDashboardStats(): Promise<UserDashboardStats> {
-    const response = await api.get<ApiResponse<UserDashboardStats>>('/analytics/dashboard');
+  async getDashboardStats(workspaceId?: string): Promise<UserDashboardStats> {
+    const response = await api.get<ApiResponse<UserDashboardStats>>('/analytics/dashboard', {
+      params: workspaceId ? { workspaceId } : undefined,
+    });
     return response.data.data;
   },
 
