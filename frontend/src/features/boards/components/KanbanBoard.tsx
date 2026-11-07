@@ -80,7 +80,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       if (primaryBoard) {
         setColumns(primaryBoard.columns?.sort((a, b) => a.position - b.position) || []);
       }
-      setTasks(tasksData.sort((a, b) => a.position - b.position));
+      const safeTasksList: Task[] = Array.isArray(tasksData)
+        ? tasksData
+        : (tasksData as any)?.items || [];
+      setTasks(safeTasksList.sort((a, b) => a.position - b.position));
     } catch {
       toast.error('Failed to load board tasks');
     } finally {

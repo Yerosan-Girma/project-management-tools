@@ -44,12 +44,19 @@ export const taskService = {
 
   async getProjectTasks(
     projectId: string,
-    params?: { search?: string; status?: string; priority?: PriorityLevel; assigneeId?: string }
+    params?: { search?: string; status?: string; priority?: PriorityLevel; assigneeId?: string; page?: number; limit?: number }
   ): Promise<Task[]> {
-    const response = await api.get<ApiResponse<Task[]>>(`/tasks/project/${projectId}`, {
-      params,
+    const response = await api.get<ApiResponse<any>>(`/tasks/project/${projectId}`, {
+      params: { limit: 100, ...params },
     });
-    return response.data.data;
+    const data = response.data?.data;
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data && Array.isArray(data.items)) {
+      return data.items;
+    }
+    return [];
   },
 
   async getTask(taskId: string): Promise<Task> {

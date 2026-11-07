@@ -103,7 +103,10 @@ export const ProjectDetailPage: React.FC = () => {
       setTargetDate(proj.targetDate ? proj.targetDate.slice(0, 10) : '');
       setMembers(proj.members || []);
       setBoards(boardsData);
-      setTasks(tasksData);
+      const parsedTasks: Task[] = Array.isArray(tasksData)
+        ? tasksData
+        : (tasksData as any)?.items || [];
+      setTasks(parsedTasks);
 
       // Load workspace members for the Add Member modal
       if (proj.workspaceId) {
@@ -129,7 +132,13 @@ export const ProjectDetailPage: React.FC = () => {
     } else if (currentTab === 'activity') {
       projectService.getProjectActivity(projectId).then(setActivities).catch(() => {});
     } else if (currentTab === 'list' || currentTab === 'board') {
-      taskService.getProjectTasks(projectId).then(setTasks).catch(() => {});
+      taskService
+        .getProjectTasks(projectId)
+        .then((res) => {
+          const parsed = Array.isArray(res) ? res : (res as any)?.items || [];
+          setTasks(parsed);
+        })
+        .catch(() => {});
     }
   }, [projectId, currentTab]);
 
@@ -292,22 +301,24 @@ export const ProjectDetailPage: React.FC = () => {
     );
   }
 
+  const safeTasks: Task[] = Array.isArray(tasks) ? tasks : (tasks as any)?.items || [];
+
   const tabsList = [
     { id: 'board', label: 'Kanban Board', icon: <Kanban className="w-4 h-4" /> },
-    { id: 'list', label: 'List View', icon: <ListTodo className="w-4 h-4" />, count: tasks.length },
+    { id: 'list', label: 'List View', icon: <ListTodo className="w-4 h-4" />, count: safeTasks.length },
     { id: 'overview', label: 'Overview', icon: <BarChart2 className="w-4 h-4" /> },
-    { id: 'members', label: 'Members', icon: <Users className="w-4 h-4" />, count: members.length },
+    { id: 'members', label: 'Members', icon: <Users className="w-4 h-4" />, count: (members || []).length },
     { id: 'activity', label: 'Activity', icon: <History className="w-4 h-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 
   // Candidates for project member addition (workspace members not yet added)
-  const availableUsers = workspaceMembers.filter(
-    (wm) => !members.some((pm) => pm.userId === wm.userId)
+  const availableUsers = (workspaceMembers || []).filter(
+    (wm) => !(members || []).some((pm) => pm.userId === wm.userId)
   );
 
   // Filter tasks for the List view
-  const filteredListTasks = tasks.filter((t) => {
+  const filteredListTasks = safeTasks.filter((t) => {
     if (listPriorityFilter !== 'ALL' && t.priority !== listPriorityFilter) return false;
     if (listSearch.trim()) {
       const q = listSearch.toLowerCase();
@@ -599,7 +610,7 @@ export const ProjectDetailPage: React.FC = () => {
               <CardContent className="pt-4">
                 <span className="text-xs text-slate-500">Total Deliverables</span>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {overview?.totalTasks ?? tasks.length}
+                  {overview?.totalTasks ?? safeTasks.length}
                 </p>
               </CardContent>
             </Card>
