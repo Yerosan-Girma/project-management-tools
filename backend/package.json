@@ -12,6 +12,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
+    "admin:promote": "tsx scripts/manage-platform-admin.ts promote",
+    "admin:create": "tsx scripts/manage-platform-admin.ts create",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
