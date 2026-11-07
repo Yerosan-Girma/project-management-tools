@@ -20,12 +20,19 @@ export interface ProjectContext {
   role: ProjectRole;
 }
 
+export interface TaskContext {
+  taskId: string;
+  role: ProjectRole;
+  task?: any;
+}
+
 declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
       workspaceContext?: WorkspaceContext;
       projectContext?: ProjectContext;
+      taskContext?: TaskContext;
       requestId?: string;
     }
   }

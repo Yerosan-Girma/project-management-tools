@@ -1,16 +1,18 @@
 import { Router } from 'express';
 import { TasksController } from './tasks.controller';
 import { authenticate } from '../../middleware/authenticate';
-import { requireProjectRole } from '../../middleware/authorize';
+import {
+  requireProjectPermission,
+  requireTaskPermission,
+} from '../../middleware/authorize';
 import { validate } from '../../middleware/validate';
 import { asyncHandler } from '../../utils/async-handler';
-import { ProjectRole } from '../../constants/roles';
 import {
   createTaskSchema,
   updateTaskSchema,
   moveTaskSchema,
   assignUsersSchema,
-  taskLabelsSchema
+  taskLabelsSchema,
 } from './tasks.schema';
 
 const router = Router();
@@ -25,22 +27,61 @@ router.get('/my-assigned', asyncHandler(controller.listMyTasks));
 router.post(
   '/',
   validate({ body: createTaskSchema }),
+  requireProjectPermission('project:tasks:create', 'projectId'),
   asyncHandler(controller.create)
 );
 
 router.get(
   '/project/:projectId',
-  requireProjectRole(ProjectRole.VIEWER),
+  requireProjectPermission('project:tasks:read', 'projectId'),
   asyncHandler(controller.listProjectTasks)
 );
 
-// Single task endpoints
-router.get('/:taskId', asyncHandler(controller.getDetails));
-router.patch('/:taskId', validate({ body: updateTaskSchema }), asyncHandler(controller.update));
-router.post('/:taskId/move', validate({ body: moveTaskSchema }), asyncHandler(controller.move));
-router.post('/:taskId/assign', validate({ body: assignUsersSchema }), asyncHandler(controller.assignUsers));
-router.delete('/:taskId/assignees/:userId', asyncHandler(controller.unassignUser));
-router.put('/:taskId/labels', validate({ body: taskLabelsSchema }), asyncHandler(controller.setLabels));
-router.delete('/:taskId', asyncHandler(controller.archive));
+// Single task endpoints with granular PBAC enforcement
+router.get(
+  '/:taskId',
+  requireTaskPermission('task:read'),
+  asyncHandler(controller.getDetails)
+);
+
+router.patch(
+  '/:taskId',
+  requireTaskPermission('task:update'),
+  validate({ body: updateTaskSchema }),
+  asyncHandler(controller.update)
+);
+
+router.post(
+  '/:taskId/move',
+  requireTaskPermission('task:move'),
+  validate({ body: moveTaskSchema }),
+  asyncHandler(controller.move)
+);
+
+router.post(
+  '/:taskId/assign',
+  requireTaskPermission('task:assign'),
+  validate({ body: assignUsersSchema }),
+  asyncHandler(controller.assignUsers)
+);
+
+router.delete(
+  '/:taskId/assignees/:userId',
+  requireTaskPermission('task:assign'),
+  asyncHandler(controller.unassignUser)
+);
+
+router.put(
+  '/:taskId/labels',
+  requireTaskPermission('task:labels:manage'),
+  validate({ body: taskLabelsSchema }),
+  asyncHandler(controller.setLabels)
+);
+
+router.delete(
+  '/:taskId',
+  requireTaskPermission('task:delete'),
+  asyncHandler(controller.archive)
+);
 
 export default router;

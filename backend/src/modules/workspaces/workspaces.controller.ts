@@ -28,13 +28,14 @@ export class WorkspacesController {
   update = async (req: Request, res: Response): Promise<void> => {
     const workspace = await this.workspacesService.updateWorkspace(
       req.params.workspaceId,
-      req.body
+      req.body,
+      req.user!.id
     );
     ApiResponse.success(res, 'Workspace updated successfully.', workspace);
   };
 
   archive = async (req: Request, res: Response): Promise<void> => {
-    await this.workspacesService.archiveWorkspace(req.params.workspaceId);
+    await this.workspacesService.archiveWorkspace(req.params.workspaceId, req.user!.id);
     ApiResponse.success(res, 'Workspace archived successfully.');
   };
 

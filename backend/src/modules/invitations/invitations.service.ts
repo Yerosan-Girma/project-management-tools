@@ -3,10 +3,12 @@ import { InvitationsRepository } from './invitations.repository';
 import { prisma } from '../../config/database';
 import { AppError } from '../../utils/app-error';
 import { InvitationStatus } from '@prisma/client';
+import { WorkspaceRole, PlatformRole } from '../../constants/roles';
 import { sendEmail } from '../../config/email';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { InviteMemberInput } from './invitations.schema';
+import { authorizationService } from '../authorization/authorization.service';
 
 export class InvitationsService {
   constructor(private readonly invitationsRepo: InvitationsRepository = new InvitationsRepository()) {}
@@ -18,35 +20,50 @@ export class InvitationsService {
   ) {
     // 1. Verify workspace exists
     const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId, deletedAt: null }
+      where: { id: workspaceId, deletedAt: null },
     });
     if (!workspace) {
       throw AppError.notFound('Workspace not found.');
     }
 
-    // 2. Check if user with this email is already a member
+    // 2. Check inviter's role & permissions guardrail
+    const inviterMember = await prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: { workspaceId, userId: inviterId },
+      },
+    });
+    const inviterUser = await prisma.user.findUnique({ where: { id: inviterId } });
+    const isPlatformAdmin = inviterUser?.platformRole === PlatformRole.PLATFORM_ADMIN;
+
+    authorizationService.canInviteWithRole({
+      operatorRole: (inviterMember?.role as WorkspaceRole) || WorkspaceRole.GUEST,
+      invitedRole: input.role as WorkspaceRole,
+      isPlatformAdmin,
+    });
+
+    // 3. Check if user with this email is already a member
     const existingUser = await prisma.user.findUnique({
-      where: { email: input.email.toLowerCase() }
+      where: { email: input.email.toLowerCase() },
     });
 
     if (existingUser) {
       const existingMember = await prisma.workspaceMember.findUnique({
         where: {
-          workspaceId_userId: { workspaceId, userId: existingUser.id }
-        }
+          workspaceId_userId: { workspaceId, userId: existingUser.id },
+        },
       });
       if (existingMember) {
         throw AppError.conflict('User is already a member of this workspace.');
       }
     }
 
-    // 3. Check for existing active pending invitation
+    // 4. Check for existing active pending invitation
     const pendingInvitation = await this.invitationsRepo.findPendingInvitation(workspaceId, input.email);
     if (pendingInvitation) {
       throw AppError.conflict('An active invitation has already been sent to this email.');
     }
 
-    // 4. Generate secure token
+    // 5. Generate secure token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -56,10 +73,23 @@ export class InvitationsService {
       email: input.email,
       role: input.role as any,
       token,
-      expiresAt
+      expiresAt,
     });
 
-    // 5. Send invitation email
+    // 6. Record Audit Log
+    await authorizationService.recordAuditLog({
+      actorId: inviterId,
+      workspaceId,
+      resourceType: 'workspace_invitation',
+      resourceId: invitation.id,
+      action: 'INVITATION_SENT',
+      metadata: {
+        inviteeEmail: input.email,
+        assignedRole: input.role,
+      },
+    });
+
+    // 7. Send invitation email
     const inviteUrl = `${env.FRONTEND_URL}/invitations/accept?token=${token}`;
     sendEmail({
       to: input.email,
@@ -69,7 +99,7 @@ export class InvitationsService {
         <p>You have been invited to join <strong>${workspace.name}</strong> as a <strong>${input.role}</strong>.</p>
         <p><a href="${inviteUrl}">Click here to accept your invitation</a></p>
         <p>This invitation link expires in 7 days.</p>
-      `
+      `,
     }).catch((err) => logger.warn(`Invitation email send failed: ${err.message}`));
 
     return invitation;
@@ -99,17 +129,42 @@ export class InvitationsService {
   async acceptInvitation(token: string, userId: string, userEmail: string) {
     const invitation = await this.getInvitationByToken(token);
 
-    // Optional: email mismatch warning/check
+    // Strict email match requirement to prevent invitation interception
     if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
-      logger.warn(`User ${userEmail} accepting invitation intended for ${invitation.email}`);
+      throw AppError.forbidden('This invitation was sent to a different email address.');
     }
 
-    return this.invitationsRepo.acceptInvitation(
+    // Verify user is not already a member
+    const existingMember = await prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: { workspaceId: invitation.workspaceId, userId },
+      },
+    });
+    if (existingMember) {
+      throw AppError.conflict('You are already a member of this workspace.');
+    }
+
+    const membership = await this.invitationsRepo.acceptInvitation(
       invitation.id,
       invitation.workspaceId,
       userId,
       invitation.role
     );
+
+    // Record Audit Log
+    await authorizationService.recordAuditLog({
+      actorId: userId,
+      workspaceId: invitation.workspaceId,
+      resourceType: 'workspace_invitation',
+      resourceId: invitation.id,
+      action: 'INVITATION_ACCEPTED',
+      metadata: {
+        userEmail,
+        role: invitation.role,
+      },
+    });
+
+    return membership;
   }
 
   async rejectInvitation(token: string) {
@@ -118,8 +173,19 @@ export class InvitationsService {
     return true;
   }
 
-  async cancelInvitation(invitationId: string, workspaceId: string) {
+  async cancelInvitation(invitationId: string, workspaceId: string, operatorUserId?: string) {
     await this.invitationsRepo.cancelInvitation(invitationId);
+
+    if (operatorUserId) {
+      await authorizationService.recordAuditLog({
+        actorId: operatorUserId,
+        workspaceId,
+        resourceType: 'workspace_invitation',
+        resourceId: invitationId,
+        action: 'INVITATION_CANCELLED',
+      });
+    }
+
     return true;
   }
 }

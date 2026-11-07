@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { WorkspacesController } from './workspaces.controller';
 import { authenticate } from '../../middleware/authenticate';
-import { requireWorkspaceRole } from '../../middleware/authorize';
+import { requireWorkspacePermission } from '../../middleware/authorize';
 import { validate } from '../../middleware/validate';
 import { asyncHandler } from '../../utils/async-handler';
-import { WorkspaceRole } from '../../constants/roles';
 import {
   createWorkspaceSchema,
   updateWorkspaceSchema,
   updateMemberRoleSchema,
-  transferOwnershipSchema
+  transferOwnershipSchema,
 } from './workspaces.schema';
 
 const router = Router();
@@ -21,48 +20,52 @@ router.use(authenticate);
 router.post('/', validate({ body: createWorkspaceSchema }), asyncHandler(controller.create));
 router.get('/', asyncHandler(controller.listMyWorkspaces));
 
-// Single workspace (require GUEST or above)
-router.get('/:workspaceId', requireWorkspaceRole(WorkspaceRole.GUEST), asyncHandler(controller.getDetails));
+// Single workspace
+router.get(
+  '/:workspaceId',
+  requireWorkspacePermission('workspace:read'),
+  asyncHandler(controller.getDetails)
+);
 
-// Workspace management (require ADMIN or OWNER)
+// Workspace settings update
 router.patch(
   '/:workspaceId',
-  requireWorkspaceRole(WorkspaceRole.ADMIN),
+  requireWorkspacePermission('workspace:update'),
   validate({ body: updateWorkspaceSchema }),
   asyncHandler(controller.update)
 );
 
-// Workspace archival (require OWNER)
+// Workspace delete / archival (Owner only)
 router.delete(
   '/:workspaceId',
-  requireWorkspaceRole(WorkspaceRole.OWNER),
+  requireWorkspacePermission('workspace:delete'),
   asyncHandler(controller.archive)
 );
 
 // Members management
 router.get(
   '/:workspaceId/members',
-  requireWorkspaceRole(WorkspaceRole.GUEST),
+  requireWorkspacePermission('workspace:members:read'),
   asyncHandler(controller.listMembers)
 );
 
 router.patch(
   '/:workspaceId/members/:memberId/role',
-  requireWorkspaceRole(WorkspaceRole.ADMIN),
+  requireWorkspacePermission('workspace:members:manage_roles'),
   validate({ body: updateMemberRoleSchema }),
   asyncHandler(controller.updateMemberRole)
 );
 
 router.delete(
   '/:workspaceId/members/:memberId',
-  requireWorkspaceRole(WorkspaceRole.ADMIN),
+  requireWorkspacePermission('workspace:members:remove'),
   asyncHandler(controller.removeMember)
 );
 
-// Ownership transfer (require OWNER)
+// Ownership transfer (Owner only)
 router.post(
   '/:workspaceId/transfer-ownership',
-  requireWorkspaceRole(WorkspaceRole.OWNER),
+  requireWorkspacePermission('workspace:ownership:transfer'),
   validate({ body: transferOwnershipSchema }),
   asyncHandler(controller.transferOwnership)
 );

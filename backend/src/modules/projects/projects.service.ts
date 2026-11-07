@@ -222,13 +222,58 @@ export class ProjectsService {
       throw AppError.notFound('Project member not found.');
     }
 
-    return this.projectsRepo.updateMemberRole(projectId, targetUserId, input.role as ProjectRole);
+    if (operatorUserId === targetUserId) {
+      throw AppError.forbidden('You cannot change your own project role.');
+    }
+
+    // Prevent demoting the last manager
+    if (member.role === ProjectRole.MANAGER && input.role !== ProjectRole.MANAGER) {
+      const managerCount = await prisma.projectMember.count({
+        where: { projectId, role: ProjectRole.MANAGER }
+      });
+      if (managerCount <= 1) {
+        throw AppError.badRequest('Cannot demote the last project manager.');
+      }
+    }
+
+    const previousRole = member.role;
+    const updated = await this.projectsRepo.updateMemberRole(projectId, targetUserId, input.role as ProjectRole);
+
+    const project = await this.projectsRepo.findById(projectId);
+    if (project) {
+      await prisma.activityLog.create({
+        data: {
+          actorId: operatorUserId,
+          workspaceId: project.workspaceId,
+          projectId: project.id,
+          resourceType: 'project_member_role',
+          resourceId: targetUserId,
+          action: 'PROJECT_MEMBER_ROLE_UPDATED',
+          metadata: {
+            previousRole,
+            newRole: input.role,
+            targetUserId
+          }
+        }
+      });
+    }
+
+    return updated;
   }
 
   async removeProjectMember(projectId: string, targetUserId: string, operatorUserId: string) {
     const member = await this.projectsRepo.findMember(projectId, targetUserId);
     if (!member) {
       throw AppError.notFound('Project member not found.');
+    }
+
+    if (member.role === ProjectRole.MANAGER) {
+      const managerCount = await prisma.projectMember.count({
+        where: { projectId, role: ProjectRole.MANAGER }
+      });
+      if (managerCount <= 1) {
+        throw AppError.badRequest('Cannot remove the last project manager from the project.');
+      }
     }
 
     await this.projectsRepo.removeMember(projectId, targetUserId);
@@ -243,6 +288,18 @@ export class ProjectsService {
           message: `You were removed from project "${project.name}".`,
           resourceType: 'project',
           resourceId: project.id
+        }
+      });
+
+      await prisma.activityLog.create({
+        data: {
+          actorId: operatorUserId,
+          workspaceId: project.workspaceId,
+          projectId: project.id,
+          resourceType: 'project_member',
+          resourceId: targetUserId,
+          action: 'PROJECT_MEMBER_REMOVED',
+          metadata: { removedUserId: targetUserId }
         }
       });
     }

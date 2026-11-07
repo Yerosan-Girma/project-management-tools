@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { User, RefreshToken, PasswordResetToken, EmailVerificationToken, UserStatus } from '@prisma/client';
+import { User, RefreshToken, PasswordResetToken, EmailVerificationToken, UserStatus, PlatformRole } from '@prisma/client';
 
 export class AuthRepository {
   async findUserByEmail(email: string): Promise<User | null> {
@@ -32,6 +32,7 @@ export class AuthRepository {
         email: data.email.toLowerCase(),
         passwordHash: data.passwordHash,
         avatarUrl: data.avatarUrl,
+        platformRole: PlatformRole.USER,
         status: UserStatus.ACTIVE
       }
     });

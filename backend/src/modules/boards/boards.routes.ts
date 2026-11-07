@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { BoardsController } from './boards.controller';
 import { authenticate } from '../../middleware/authenticate';
-import { requireProjectRole } from '../../middleware/authorize';
+import {
+  requireProjectPermission,
+  requireBoardPermission,
+} from '../../middleware/authorize';
 import { validate } from '../../middleware/validate';
 import { asyncHandler } from '../../utils/async-handler';
-import { ProjectRole } from '../../constants/roles';
 import { createBoardSchema, updateBoardSchema } from './boards.schema';
 
 const router = Router();
@@ -16,31 +18,34 @@ router.use(authenticate);
 router.post(
   '/',
   validate({ body: createBoardSchema }),
-  requireProjectRole(ProjectRole.MANAGER),
+  requireProjectPermission('project:boards:manage', 'projectId'),
   asyncHandler(controller.create)
 );
 
 // List project boards
 router.get(
   '/project/:projectId',
-  requireProjectRole(ProjectRole.VIEWER),
+  requireProjectPermission('project:read', 'projectId'),
   asyncHandler(controller.listProjectBoards)
 );
 
 // Single board
 router.get(
   '/:boardId',
+  requireBoardPermission('project:read', 'boardId'),
   asyncHandler(controller.getDetails)
 );
 
 router.patch(
   '/:boardId',
+  requireBoardPermission('project:boards:manage', 'boardId'),
   validate({ body: updateBoardSchema }),
   asyncHandler(controller.update)
 );
 
 router.delete(
   '/:boardId',
+  requireBoardPermission('project:boards:manage', 'boardId'),
   asyncHandler(controller.archive)
 );
 

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { PlatformRole } from '../../constants/roles';
+import { UserStatus } from '../../constants/status';
 
 export const updateProfileSchema = z.object({
   name: z.string().min(2).max(100).optional(),
@@ -19,5 +21,15 @@ export const searchUsersSchema = z.object({
   query: z.string().min(1, 'Search query required').max(100)
 });
 
+export const updatePlatformRoleSchema = z.object({
+  platformRole: z.enum([PlatformRole.PLATFORM_ADMIN, PlatformRole.USER])
+});
+
+export const updateUserStatusSchema = z.object({
+  status: z.enum([UserStatus.ACTIVE, UserStatus.INACTIVE, UserStatus.SUSPENDED])
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type UpdatePlatformRoleInput = z.infer<typeof updatePlatformRoleSchema>;
+export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;

@@ -40,7 +40,11 @@ export class InvitationsController {
   };
 
   cancel = async (req: Request, res: Response): Promise<void> => {
-    await this.invitationsService.cancelInvitation(req.params.invitationId, req.params.workspaceId);
+    await this.invitationsService.cancelInvitation(
+      req.params.invitationId,
+      req.params.workspaceId,
+      req.user!.id
+    );
     ApiResponse.success(res, 'Invitation cancelled.');
   };
 }

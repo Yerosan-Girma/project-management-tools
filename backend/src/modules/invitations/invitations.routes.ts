@@ -1,10 +1,9 @@
 import { Router } from 'express';
 import { InvitationsController } from './invitations.controller';
 import { authenticate } from '../../middleware/authenticate';
-import { requireWorkspaceRole } from '../../middleware/authorize';
+import { requireWorkspacePermission } from '../../middleware/authorize';
 import { validate } from '../../middleware/validate';
 import { asyncHandler } from '../../utils/async-handler';
-import { WorkspaceRole } from '../../constants/roles';
 import { inviteMemberSchema, respondInvitationSchema } from './invitations.schema';
 
 const router = Router();
@@ -32,7 +31,7 @@ router.post(
 router.post(
   '/workspaces/:workspaceId',
   authenticate,
-  requireWorkspaceRole(WorkspaceRole.ADMIN),
+  requireWorkspacePermission('workspace:members:invite'),
   validate({ body: inviteMemberSchema }),
   asyncHandler(controller.invite)
 );
@@ -40,14 +39,14 @@ router.post(
 router.get(
   '/workspaces/:workspaceId',
   authenticate,
-  requireWorkspaceRole(WorkspaceRole.ADMIN),
+  requireWorkspacePermission('workspace:members:read'),
   asyncHandler(controller.listWorkspaceInvitations)
 );
 
 router.delete(
   '/workspaces/:workspaceId/:invitationId',
   authenticate,
-  requireWorkspaceRole(WorkspaceRole.ADMIN),
+  requireWorkspacePermission('workspace:members:invite'),
   asyncHandler(controller.cancel)
 );
 
