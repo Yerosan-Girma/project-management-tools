@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { AuthRepository } from './auth.repository';
+import { prisma } from '../../config/database';
+import { InvitationStatus } from '@prisma/client';
 import { env } from '../../config/env';
 import { AppError, ErrorCode } from '../../utils/app-error';
 import { UserStatus } from '../../constants/status';
@@ -112,6 +114,84 @@ export class AuthService {
       `
     }).catch((err) => logger.warn(`Email send failed: ${err.message}`));
 
+    // Process pending invitation if inviteToken is provided or if pending invitation exists for this email
+    let joinedWorkspace: any = null;
+    let assignedRole: string | null = null;
+
+    let targetInvitation: any = null;
+    if (input.inviteToken) {
+      targetInvitation = await prisma.workspaceInvitation.findUnique({
+        where: { token: input.inviteToken },
+        include: { workspace: { select: { id: true, name: true, slug: true } } }
+      });
+    }
+
+    if (!targetInvitation) {
+      targetInvitation = await prisma.workspaceInvitation.findFirst({
+        where: {
+          email: user.email.toLowerCase(),
+          status: InvitationStatus.PENDING,
+          expiresAt: { gt: new Date() }
+        },
+        include: { workspace: { select: { id: true, name: true, slug: true } } }
+      });
+    }
+
+    if (
+      targetInvitation &&
+      targetInvitation.status === InvitationStatus.PENDING &&
+      new Date() <= targetInvitation.expiresAt &&
+      targetInvitation.email.toLowerCase() === user.email.toLowerCase()
+    ) {
+      await prisma.$transaction([
+        prisma.workspaceInvitation.update({
+          where: { id: targetInvitation.id },
+          data: { status: InvitationStatus.ACCEPTED, respondedAt: new Date() }
+        }),
+        prisma.workspaceMember.upsert({
+          where: {
+            workspaceId_userId: {
+              workspaceId: targetInvitation.workspaceId,
+              userId: user.id
+            }
+          },
+          create: {
+            workspaceId: targetInvitation.workspaceId,
+            userId: user.id,
+            role: targetInvitation.role
+          },
+          update: {
+            role: targetInvitation.role
+          }
+        }),
+        prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerifiedAt: new Date() }
+        })
+      ]);
+
+      joinedWorkspace = targetInvitation.workspace;
+      assignedRole = targetInvitation.role;
+      user.emailVerifiedAt = new Date();
+
+      await prisma.activityLog.create({
+        data: {
+          actorId: user.id,
+          workspaceId: targetInvitation.workspaceId,
+          resourceType: 'workspace_invitation',
+          resourceId: targetInvitation.id,
+          action: 'INVITATION_ACCEPTED',
+          metadata: {
+            userEmail: user.email,
+            role: targetInvitation.role,
+            flow: 'auto_registered'
+          }
+        }
+      });
+
+      logger.info(`🎉 User ${user.email} auto-joined workspace ${targetInvitation.workspace.name} as ${targetInvitation.role}`);
+    }
+
     return {
       user: {
         id: user.id,
@@ -127,7 +207,9 @@ export class AuthService {
         accessToken,
         refreshToken: rawRefreshToken,
         expiresIn: env.ACCESS_TOKEN_EXPIRES_IN
-      }
+      },
+      joinedWorkspace,
+      assignedRole
     };
   }
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { AuthLayout } from '../../../components/layout/AuthLayout';
@@ -17,8 +17,11 @@ export const LoginPage: React.FC = () => {
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+  const returnTo = searchParams.get('returnTo');
+  const emailParam = searchParams.get('email');
+  const from = returnTo || (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
 
   const {
     register,
@@ -28,7 +31,7 @@ export const LoginPage: React.FC = () => {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
+      email: emailParam || '',
       password: '',
     },
   });

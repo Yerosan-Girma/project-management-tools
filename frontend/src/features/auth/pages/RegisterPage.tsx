@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User as UserIcon, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Mail, Lock, User as UserIcon, Eye, EyeOff, AlertCircle, Check, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { AuthLayout } from '../../../components/layout/AuthLayout';
 import { Button } from '../../../components/ui/Button';
@@ -10,12 +10,17 @@ import { Input } from '../../../components/ui/Input';
 import { registerSchema, RegisterFormData } from '../schemas/auth.schema';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../../../stores/auth-store';
+import { useWorkspaceStore } from '../../../stores/workspace-store';
 
 export const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const inviteToken = searchParams.get('inviteToken') || undefined;
+  const emailParam = searchParams.get('email') || '';
 
   const {
     register,
@@ -26,7 +31,7 @@ export const RegisterPage: React.FC = () => {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       name: '',
-      email: '',
+      email: emailParam || '',
       password: '',
       confirmPassword: '',
     },
@@ -45,10 +50,18 @@ export const RegisterPage: React.FC = () => {
         name: data.name,
         email: data.email,
         password: data.password,
+        inviteToken,
       });
 
       setAuth(result.user, result.tokens);
-      toast.success('Account created successfully! Welcome to TeamFlow.');
+
+      if (result.joinedWorkspace) {
+        useWorkspaceStore.getState().setCurrentWorkspace(result.joinedWorkspace);
+        useWorkspaceStore.getState().addWorkspace(result.joinedWorkspace);
+        toast.success(`Account created! Joined ${result.joinedWorkspace.name} as ${result.assignedRole || 'member'}.`);
+      } else {
+        toast.success('Account created successfully! Welcome to TeamFlow.');
+      }
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
       const errorMsg =
@@ -65,6 +78,15 @@ export const RegisterPage: React.FC = () => {
       subtitle="Start collaborating with your team in high gear."
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {(emailParam || inviteToken) && (
+          <div className="flex items-center gap-2 p-3 text-xs text-indigo-700 bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-300 rounded-lg border border-indigo-200 dark:border-indigo-900">
+            <Sparkles className="w-4 h-4 shrink-0 text-indigo-500" />
+            <span>
+              Joining via invitation: <strong>{emailParam || 'Pending invite'}</strong>. Your account will automatically join the workspace!
+            </span>
+          </div>
+        )}
+
         {apiError && (
           <div className="flex items-center gap-2 p-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/50 dark:text-rose-300 rounded-lg border border-rose-200 dark:border-rose-900">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />

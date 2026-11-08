@@ -107,8 +107,9 @@ export const workspaceService = {
     return response.data.data;
   },
 
-  async acceptInvitation(token: string): Promise<void> {
-    await api.post('/invitations/accept', { token });
+  async acceptInvitation(token: string): Promise<any> {
+    const response = await api.post<ApiResponse<any>>('/invitations/accept', { token });
+    return response.data.data;
   },
 
   async rejectInvitation(token: string): Promise<void> {

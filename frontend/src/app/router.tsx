@@ -32,6 +32,14 @@ export const router = createBrowserRouter([
     element: <AcceptInvitationPage />,
   },
   {
+    path: '/invitations/accept',
+    element: <AcceptInvitationPage />,
+  },
+  {
+    path: '/invitations',
+    element: <AcceptInvitationPage />,
+  },
+  {
     path: '/verify-email',
     element: <VerifyEmailPage />,
   },

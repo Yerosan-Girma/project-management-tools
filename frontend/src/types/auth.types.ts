@@ -21,6 +21,8 @@ export interface AuthTokens {
 export interface AuthResponseData {
   user: User;
   tokens: AuthTokens;
+  joinedWorkspace?: any;
+  assignedRole?: string;
 }
 
 export type AuthResponse = AuthResponseData;
@@ -36,6 +38,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
+  inviteToken?: string;
 }
 
 export type RegisterInput = RegisterData;

@@ -90,15 +90,39 @@ export class InvitationsService {
     });
 
     // 7. Send invitation email
-    const inviteUrl = `${env.FRONTEND_URL}/invitations/accept?token=${token}`;
+    const inviteUrl = `${env.FRONTEND_URL}/invitations/${token}`;
     sendEmail({
       to: input.email,
-      subject: `You've been invited to join ${workspace.name} on TeamFlow`,
+      subject: `You've been invited to join ${workspace.name} as ${input.role} on TeamFlow`,
       html: `
-        <h2>Join Workspace: ${workspace.name}</h2>
-        <p>You have been invited to join <strong>${workspace.name}</strong> as a <strong>${input.role}</strong>.</p>
-        <p><a href="${inviteUrl}">Click here to accept your invitation</a></p>
-        <p>This invitation link expires in 7 days.</p>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #4f46e5; margin: 0; font-size: 24px; font-weight: 700;">TeamFlow</h1>
+            <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Collaborative Workspace Platform</p>
+          </div>
+          <div style="border-top: 1px solid #f1f5f9; padding-top: 20px;">
+            <h2 style="color: #1e293b; font-size: 18px; margin-bottom: 12px;">You've Been Invited!</h2>
+            <p style="color: #475569; font-size: 15px; line-height: 1.5; margin-bottom: 16px;">
+              You have been invited to join <strong>${workspace.name}</strong> with the role of 
+              <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 13px;">${input.role}</span>.
+            </p>
+            <p style="color: #475569; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
+              As an invited member, you'll be able to collaborate on projects, track tasks, and participate in team boards.
+            </p>
+            <div style="text-align: center; margin-bottom: 28px;">
+              <a href="${inviteUrl}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
+                Accept Invitation & Join
+              </a>
+            </div>
+            <p style="color: #94a3b8; font-size: 12px; line-height: 1.4; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+              Or paste this link into your browser:<br/>
+              <a href="${inviteUrl}" style="color: #6366f1; word-break: break-all;">${inviteUrl}</a>
+            </p>
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">
+              This invitation link expires in 7 days. If you did not expect this email, you can safely ignore it.
+            </p>
+          </div>
+        </div>
       `,
     }).catch((err) => logger.warn(`Invitation email send failed: ${err.message}`));
 
@@ -131,17 +155,23 @@ export class InvitationsService {
 
     // Strict email match requirement to prevent invitation interception
     if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
-      throw AppError.forbidden('This invitation was sent to a different email address.');
+      throw AppError.forbidden(`This invitation was sent to ${invitation.email}, but you are currently signed in as ${userEmail}.`);
     }
 
-    // Verify user is not already a member
+    // If user is already a member, accept invitation and sync/promote role
     const existingMember = await prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: { workspaceId: invitation.workspaceId, userId },
       },
     });
     if (existingMember) {
-      throw AppError.conflict('You are already a member of this workspace.');
+      const membership = await this.invitationsRepo.acceptInvitation(
+        invitation.id,
+        invitation.workspaceId,
+        userId,
+        invitation.role
+      );
+      return membership;
     }
 
     const membership = await this.invitationsRepo.acceptInvitation(

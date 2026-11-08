@@ -11,6 +11,7 @@ const controller = new InvitationsController();
 
 // Public invitation verification endpoint
 router.get('/details/:token', asyncHandler(controller.getDetails));
+router.get('/details', asyncHandler(controller.getDetails));
 
 // Authenticated invitation acceptance/rejection
 router.post(

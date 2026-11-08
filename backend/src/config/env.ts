@@ -26,6 +26,7 @@ const envSchema = z.object({
   SMTP_PORT: z.string().transform((val) => (val ? parseInt(val, 10) : 587)).optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
+  MAILTRAP_TOKEN: z.string().optional(),
   EMAIL_FROM: z.string().default('TeamFlow <noreply@teamflow.local>'),
 
   STORAGE_ENDPOINT: z.string().optional(),
