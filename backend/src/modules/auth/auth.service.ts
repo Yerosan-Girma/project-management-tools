@@ -64,17 +64,29 @@ export class AuthService {
 
   // Register a new user
   async register(input: RegisterInput, ip?: string, userAgent?: string) {
-    const existing = await this.authRepo.findUserByEmail(input.email);
-    if (existing) {
-      throw AppError.conflict('An account with this email address already exists.');
-    }
-
+    const existingAny = await this.authRepo.findAnyUserByEmail(input.email);
+    let user;
     const passwordHash = await this.hashPassword(input.password);
-    const user = await this.authRepo.createUser({
-      name: input.name,
-      email: input.email,
-      passwordHash
-    });
+
+    if (existingAny) {
+      if (!existingAny.deletedAt) {
+        throw AppError.conflict('An account with this email address already exists.');
+      }
+      // Re-activate previously soft-deleted account with updated credentials
+      user = await this.authRepo.updateUser(existingAny.id, {
+        name: input.name,
+        passwordHash,
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+        emailVerifiedAt: new Date()
+      });
+    } else {
+      user = await this.authRepo.createUser({
+        name: input.name,
+        email: input.email,
+        passwordHash
+      });
+    }
 
     // Create session & tokens
     const rawRefreshToken = this.generateRawRefreshToken();
@@ -141,7 +153,7 @@ export class AuthService {
       targetInvitation &&
       targetInvitation.status === InvitationStatus.PENDING &&
       new Date() <= targetInvitation.expiresAt &&
-      targetInvitation.email.toLowerCase() === user.email.toLowerCase()
+      (Boolean(input.inviteToken) || targetInvitation.email.toLowerCase() === user.email.toLowerCase())
     ) {
       await prisma.$transaction([
         prisma.workspaceInvitation.update({
@@ -227,6 +239,10 @@ export class AuthService {
 
     if (user.status === UserStatus.SUSPENDED) {
       throw new AppError('Your account has been suspended. Please contact support.', 403, ErrorCode.FORBIDDEN);
+    }
+
+    if (user.status === UserStatus.INACTIVE) {
+      throw new AppError('Your account is currently inactive. Please contact support.', 403, ErrorCode.FORBIDDEN);
     }
 
     // Issue tokens

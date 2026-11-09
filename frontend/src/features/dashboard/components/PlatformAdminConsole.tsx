@@ -15,15 +15,25 @@ import {
   Radio,
   ChevronRight,
   Shield,
+  Trash2,
+  Eye,
+  AlertTriangle,
+  Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { userService, PlatformStats, PlatformUserItem } from '../../users/services/user.service';
+import {
+  userService,
+  PlatformStats,
+  PlatformUserItem,
+  UserHierarchyDetails,
+} from '../../users/services/user.service';
 import { workspaceService } from '../../workspaces/services/workspace.service';
 import { Workspace } from '../../../types/workspace.types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Avatar } from '../../../components/ui/Avatar';
+import { Modal } from '../../../components/ui/Modal';
 import { useAuthStore } from '../../../stores/auth-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 
@@ -39,6 +49,15 @@ export const PlatformAdminConsole: React.FC = () => {
   const [allWorkspaces, setAllWorkspaces] = useState<Workspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Hierarchy inspect state
+  const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
+  const [inspectUser, setInspectUser] = useState<UserHierarchyDetails | null>(null);
+  const [isLoadingHierarchy, setIsLoadingHierarchy] = useState(false);
+
+  // User delete state
+  const [userToDelete, setUserToDelete] = useState<PlatformUserItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // User filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -156,6 +175,52 @@ export const PlatformAdminConsole: React.FC = () => {
       });
     } finally {
       setActionInProgress(null);
+    }
+  };
+
+  // Inspect user hierarchy (Roles, Projects, and Tasks under each Project)
+  const handleInspectUser = async (u: PlatformUserItem) => {
+    setIsInspectModalOpen(true);
+    setIsLoadingHierarchy(true);
+    setInspectUser(null);
+    try {
+      const details = await userService.getUserHierarchy(u.id);
+      setInspectUser(details);
+    } catch (err: any) {
+      toast.error('Failed to load user hierarchy details', {
+        description: err.response?.data?.message || err.message,
+      });
+      setIsInspectModalOpen(false);
+    } finally {
+      setIsLoadingHierarchy(false);
+    }
+  };
+
+  // Delete User permanently
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    if (userToDelete.id === currentUser?.id) {
+      toast.error('Self-Deletion Blocked', {
+        description: 'You cannot delete your own platform administrator account.',
+      });
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await userService.deleteUser(userToDelete.id);
+      toast.success('User Deleted Successfully', {
+        description: `${userToDelete.name} (${userToDelete.email}) was removed from the platform.`,
+      });
+      setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
+      setUserToDelete(null);
+      userService.getPlatformStats().then((data) => data && setStats(data));
+    } catch (err: any) {
+      toast.error('Failed to delete user', {
+        description: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -417,6 +482,7 @@ export const PlatformAdminConsole: React.FC = () => {
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Workspaces</th>
                   <th className="px-4 py-3">Projects</th>
+                  <th className="px-4 py-3">Tasks</th>
                   <th className="px-4 py-3">Registered</th>
                   <th className="px-4 py-3 text-right">Administrative Actions</th>
                 </tr>
@@ -424,7 +490,7 @@ export const PlatformAdminConsole: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400 italic">
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-400 italic">
                       No users match the search filters.
                     </td>
                   </tr>
@@ -487,12 +553,28 @@ export const PlatformAdminConsole: React.FC = () => {
                           {u._count?.projectMemberships ?? 0}
                         </td>
 
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-medium">
+                          {u._count?.taskAssignments ?? 0}
+                        </td>
+
                         <td className="px-4 py-3 text-slate-400 text-[11px]">
                           {new Date(u.createdAt).toLocaleDateString()}
                         </td>
 
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Inspect Hierarchy Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInspectUser(u)}
+                              title="Inspect user roles, projects, and tasks"
+                              className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-[11px] py-1 px-2.5 h-auto flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Inspect</span>
+                            </Button>
+
                             {/* Role Toggle Button */}
                             <Button
                               variant="outline"
@@ -537,6 +619,19 @@ export const PlatformAdminConsole: React.FC = () => {
                                   <UserX className="w-3 h-3" /> Suspend
                                 </span>
                               )}
+                            </Button>
+
+                            {/* Delete User Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isSelf || isBusy}
+                              onClick={() => setUserToDelete(u)}
+                              title={isSelf ? 'Cannot delete your own administrator account' : 'Delete user account permanently'}
+                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] py-1 px-2.5 h-auto flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
                             </Button>
                           </div>
                         </td>
@@ -682,6 +777,372 @@ export const PlatformAdminConsole: React.FC = () => {
           <span>Socket.IO Live</span>
         </div>
       </div>
+
+      {/* 5. USER HIERARCHY DETAILS MODAL */}
+      <Modal
+        isOpen={isInspectModalOpen}
+        onClose={() => {
+          setIsInspectModalOpen(false);
+          setInspectUser(null);
+        }}
+        size="2xl"
+        title={
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                User Hierarchy & Access Inspection
+              </h3>
+              <p className="text-xs text-slate-500 font-normal">
+                Platform role, workspace memberships, project roles, and assigned tasks breakdown.
+              </p>
+            </div>
+          </div>
+        }
+        footer={
+          <div className="flex justify-end w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsInspectModalOpen(false);
+                setInspectUser(null);
+              }}
+            >
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {isLoadingHierarchy ? (
+          <div className="py-12 flex flex-col items-center justify-center space-y-3">
+            <RotateCw className="w-8 h-8 animate-spin text-purple-600" />
+            <p className="text-xs text-slate-500 font-medium">Loading user hierarchy telemetry...</p>
+          </div>
+        ) : inspectUser ? (
+          <div className="space-y-6">
+            {/* Profile summary card */}
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Avatar src={inspectUser.avatarUrl} name={inspectUser.name} size="lg" />
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    {inspectUser.name}
+                    {inspectUser.emailVerifiedAt && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-normal">
+                        Verified
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5">{inspectUser.email}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Registered on {new Date(inspectUser.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {inspectUser.platformRole === 'PLATFORM_ADMIN' ? (
+                  <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-200">
+                    <ShieldCheck className="w-3 h-3 mr-1 text-purple-600" />
+                    PLATFORM_ADMIN
+                  </Badge>
+                ) : (
+                  <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200">
+                    USER
+                  </Badge>
+                )}
+
+                {inspectUser.status === 'ACTIVE' ? (
+                  <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200">
+                    Active
+                  </Badge>
+                ) : (
+                  <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-200">
+                    Suspended
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Metrics Row */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+                <span className="text-[11px] text-slate-400 font-medium">Workspaces</span>
+                <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                  {inspectUser.workspaceMemberships?.length ?? 0}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+                <span className="text-[11px] text-slate-400 font-medium">Projects</span>
+                <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                  {inspectUser.projectMemberships?.length ?? 0}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+                <span className="text-[11px] text-slate-400 font-medium">Assigned Tasks</span>
+                <p className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+                  {inspectUser.taskAssignments?.length ?? 0}
+                </p>
+              </div>
+            </div>
+
+            {/* SECTION 1: WORKSPACES */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                Workspace Memberships & Roles
+              </h4>
+              {(!inspectUser.workspaceMemberships || inspectUser.workspaceMemberships.length === 0) ? (
+                <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200/60 dark:border-slate-800">
+                  User is not currently a member of any workspace.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {inspectUser.workspaceMemberships.map((wm, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">{wm.workspace?.name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">/{wm.workspace?.slug}</p>
+                      </div>
+                      <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200 text-[10px]">
+                        {wm.role}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 2: PROJECTS & ASSIGNED TASKS UNDER EACH PROJECT */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <FolderGit2 className="w-3.5 h-3.5 text-indigo-600" />
+                Project Roles & Tasks Under Each Project
+              </h4>
+
+              {(() => {
+                const projectMap = new Map<string, {
+                  project: { id: string; name: string; key: string };
+                  role?: string;
+                  tasks: Array<{
+                    id: string;
+                    title: string;
+                    priority: string;
+                    dueDate?: string | null;
+                    column?: { id: string; name: string; color?: string | null } | null;
+                  }>;
+                }>();
+
+                // Add from projectMemberships
+                inspectUser.projectMemberships?.forEach((pm) => {
+                  projectMap.set(pm.project.id, {
+                    project: pm.project,
+                    role: pm.role,
+                    tasks: [],
+                  });
+                });
+
+                // Add tasks under corresponding project
+                inspectUser.taskAssignments?.forEach((ta) => {
+                  const pid = ta.task.projectId || ta.task.project?.id;
+                  if (pid) {
+                    if (!projectMap.has(pid)) {
+                      projectMap.set(pid, {
+                        project: ta.task.project,
+                        role: 'CONTRIBUTOR',
+                        tasks: [],
+                      });
+                    }
+                    projectMap.get(pid)!.tasks.push(ta.task);
+                  }
+                });
+
+                const projectsList = Array.from(projectMap.values());
+
+                if (projectsList.length === 0) {
+                  return (
+                    <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200/60 dark:border-slate-800">
+                      User has no active projects or assigned tasks.
+                    </p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {projectsList.map((entry, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
+                      >
+                        {/* Project Header */}
+                        <div className="px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FolderGit2 className="w-3.5 h-3.5 text-indigo-600" />
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              {entry.project.name}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">
+                              {entry.project.key}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-200 text-[10px]">
+                              Role: {entry.role || 'MEMBER'}
+                            </Badge>
+                            <span className="text-[11px] text-slate-400">
+                              {entry.tasks.length} task{entry.tasks.length === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Tasks under this project */}
+                        <div className="p-3">
+                          {entry.tasks.length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic py-1 px-1">
+                              No tasks currently assigned to this user in this project.
+                            </p>
+                          ) : (
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                              {entry.tasks.map((t) => (
+                                <div
+                                  key={t.id}
+                                  className="py-2 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <CheckSquare className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                                      {t.title}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {/* Status / Column */}
+                                    {t.column && (
+                                      <span
+                                        className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                        style={{
+                                          backgroundColor: t.column.color ? `${t.column.color}20` : '#e2e8f0',
+                                          color: t.column.color || '#475569',
+                                          border: `1px solid ${t.column.color ? `${t.column.color}50` : '#cbd5e1'}`,
+                                        }}
+                                      >
+                                        {t.column.name}
+                                      </span>
+                                    )}
+
+                                    {/* Priority */}
+                                    <span
+                                      className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                                        t.priority === 'URGENT'
+                                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                                          : t.priority === 'HIGH'
+                                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                          : t.priority === 'MEDIUM'
+                                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                      }`}
+                                    >
+                                      {t.priority}
+                                    </span>
+
+                                    {/* Due Date */}
+                                    {t.dueDate && (
+                                      <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {new Date(t.dueDate).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      {/* 6. DELETE USER CONFIRMATION MODAL */}
+      <Modal
+        isOpen={!!userToDelete}
+        onClose={() => setUserToDelete(null)}
+        size="md"
+        title={
+          <div className="flex items-center gap-2 text-rose-600">
+            <AlertTriangle className="w-5 h-5" />
+            <span className="font-bold text-base">Delete User Account</span>
+          </div>
+        }
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isDeleting}
+              onClick={() => setUserToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={isDeleting}
+              onClick={handleDeleteUser}
+              className="bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
+            >
+              {isDeleting ? (
+                <>
+                  <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Confirm Delete</span>
+                </>
+              )}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 py-1">
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            Are you sure you want to permanently remove this user account?
+          </p>
+
+          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60">
+            <p className="text-xs font-bold text-rose-900 dark:text-rose-200">
+              {userToDelete?.name}
+            </p>
+            <p className="text-[11px] text-rose-700 dark:text-rose-300 font-mono">
+              {userToDelete?.email}
+            </p>
+          </div>
+
+          <div className="text-[11px] text-slate-500 space-y-1">
+            <p className="font-medium text-slate-700 dark:text-slate-300">This action will:</p>
+            <ul className="list-disc pl-5 space-y-0.5">
+              <li>Revoke all active login sessions and authentication tokens immediately.</li>
+              <li>Remove the user from all workspace and project memberships.</li>
+              <li>Unassign any active tasks assigned to this user.</li>
+              <li>Safely archive records to preserve activity logs and audit integrity.</li>
+            </ul>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

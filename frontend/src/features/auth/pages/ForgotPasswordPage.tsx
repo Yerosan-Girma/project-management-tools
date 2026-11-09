@@ -9,6 +9,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { forgotPasswordSchema, ForgotPasswordFormData } from '../schemas/auth.schema';
 import { authService } from '../services/auth.service';
+import { getErrorMessage } from '../../../utils/error';
 
 export const ForgotPasswordPage: React.FC = () => {
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
@@ -30,9 +31,7 @@ export const ForgotPasswordPage: React.FC = () => {
       setSubmittedEmail(data.email);
       toast.success('Password reset link generated.');
     } catch (err: unknown) {
-      const errorMsg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Unable to process request. Please try again.';
+      const errorMsg = getErrorMessage(err, 'Unable to process request. Please try again.');
       setApiError(errorMsg);
       toast.error(errorMsg);
     }

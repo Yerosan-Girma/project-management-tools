@@ -77,13 +77,12 @@ export class ProjectsService {
       throw AppError.forbidden('You do not belong to this workspace.');
     }
 
-    const isWorkspaceAdminOrOwner =
-      wsMember.role === WorkspaceRole.OWNER || wsMember.role === WorkspaceRole.ADMIN;
+    const isGuest = wsMember.role === WorkspaceRole.GUEST;
 
     return this.projectsRepo.listWorkspaceProjects(
       workspaceId,
       userId,
-      isWorkspaceAdminOrOwner,
+      isGuest,
       status,
       priority
     );

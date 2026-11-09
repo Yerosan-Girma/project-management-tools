@@ -15,6 +15,12 @@ export const Providers: React.FC<ProvidersProps> = ({ children }) => {
 
   useEffect(() => {
     initializeAuth();
+
+    const handleUnauthorized = () => {
+      useAuthStore.getState().logout();
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, [initializeAuth]);
 
   useEffect(() => {

@@ -10,6 +10,7 @@ import { Input } from '../../../components/ui/Input';
 import { loginSchema, LoginFormData } from '../schemas/auth.schema';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../../../stores/auth-store';
+import { getErrorMessage } from '../../../utils/error';
 
 export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -50,9 +51,7 @@ export const LoginPage: React.FC = () => {
       toast.success('Welcome back to TeamFlow!');
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      const errorMsg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Invalid email or password. Please verify your credentials.';
+      const errorMsg = getErrorMessage(err, 'Invalid email or password. Please verify your credentials.');
       setApiError(errorMsg);
       toast.error(errorMsg);
     }
@@ -151,11 +150,11 @@ export const LoginPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => handleQuickFill('admin@teamflow.local')}
-              className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
+              onClick={() => handleQuickFill('yerosang463@gmail.com')}
+              className="text-left px-2 py-1.5 rounded-md border border-purple-200 dark:border-purple-800 hover:border-purple-400 hover:bg-purple-50/40 dark:hover:bg-purple-950/40 text-xs transition-colors"
             >
-              <div className="font-semibold text-slate-800 dark:text-slate-200">Admin</div>
-              <div className="text-[10px] text-slate-500">Platform Admin</div>
+              <div className="font-semibold text-purple-800 dark:text-purple-200">Platform Admin</div>
+              <div className="text-[10px] text-purple-600 dark:text-purple-400">yerosang463@gmail.com</div>
             </button>
             <button
               type="button"

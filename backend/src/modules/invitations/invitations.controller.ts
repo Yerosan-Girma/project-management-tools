@@ -47,4 +47,13 @@ export class InvitationsController {
     );
     ApiResponse.success(res, 'Invitation cancelled.');
   };
+
+  resend = async (req: Request, res: Response): Promise<void> => {
+    const invitation = await this.invitationsService.resendInvitation(
+      req.params.workspaceId,
+      req.params.invitationId,
+      req.user!.id
+    );
+    ApiResponse.success(res, 'Invitation email resent successfully.', invitation);
+  };
 }

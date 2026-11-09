@@ -37,7 +37,46 @@ export interface PlatformUserItem {
   _count: {
     workspaceMemberships: number;
     projectMemberships: number;
+    taskAssignments?: number;
   };
+}
+
+export interface UserHierarchyDetails {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+  platformRole: 'PLATFORM_ADMIN' | 'USER';
+  status: 'ACTIVE' | 'SUSPENDED';
+  emailVerifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  workspaceMemberships: Array<{
+    role: string;
+    workspace: { id: string; name: string; slug: string; ownerId?: string };
+  }>;
+  projectMemberships: Array<{
+    role: string;
+    project: {
+      id: string;
+      name: string;
+      key: string;
+      status: string;
+      priority: string;
+      workspaceId: string;
+    };
+  }>;
+  taskAssignments: Array<{
+    task: {
+      id: string;
+      title: string;
+      priority: string;
+      dueDate?: string | null;
+      column?: { id: string; name: string; color?: string | null } | null;
+      projectId: string;
+      project: { id: string; name: string; key: string };
+    };
+  }>;
 }
 
 export interface ListPlatformUsersParams {
@@ -59,6 +98,15 @@ class UserService {
       params,
     });
     return res.data.data;
+  }
+
+  async getUserHierarchy(userId: string): Promise<UserHierarchyDetails> {
+    const res = await apiClient.get<{ success: boolean; data: UserHierarchyDetails }>(`/users/${userId}`);
+    return res.data.data;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await apiClient.delete(`/users/${userId}`);
   }
 
   async updatePlatformRole(userId: string, platformRole: 'PLATFORM_ADMIN' | 'USER'): Promise<PlatformUserItem> {

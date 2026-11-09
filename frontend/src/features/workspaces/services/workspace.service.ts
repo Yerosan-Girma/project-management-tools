@@ -102,6 +102,13 @@ export const workspaceService = {
     await api.delete(`/invitations/workspaces/${workspaceId}/${invitationId}`);
   },
 
+  async resendInvitation(workspaceId: string, invitationId: string): Promise<WorkspaceInvitation> {
+    const response = await api.post<ApiResponse<WorkspaceInvitation>>(
+      `/invitations/workspaces/${workspaceId}/${invitationId}/resend`
+    );
+    return response.data.data;
+  },
+
   async getInvitationDetails(token: string): Promise<WorkspaceInvitation> {
     const response = await api.get<ApiResponse<WorkspaceInvitation>>(`/invitations/details/${token}`);
     return response.data.data;

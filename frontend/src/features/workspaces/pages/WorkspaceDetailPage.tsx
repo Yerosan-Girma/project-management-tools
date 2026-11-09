@@ -9,6 +9,8 @@ import {
   Shield,
   Loader2,
   Crown,
+  Send,
+  Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../../stores/auth-store';
@@ -119,6 +121,28 @@ export const WorkspaceDetailPage: React.FC = () => {
       toast.success('Invitation cancelled');
     } catch {
       toast.error('Failed to cancel invitation');
+    }
+  };
+
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+
+  const handleResendInvite = async (invitationId: string, email: string) => {
+    try {
+      setResendingInviteId(invitationId);
+      const updated = await workspaceService.resendInvitation(workspace.id, invitationId);
+      toast.success(`Invitation email resent to ${email}!`, {
+        description: 'A refreshed 7-day invitation link has been dispatched to their inbox.',
+      });
+      setInvitations((prev) =>
+        prev.map((i) => (i.id === invitationId ? updated : i))
+      );
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to resend invitation email';
+      toast.error(msg);
+    } finally {
+      setResendingInviteId(null);
     }
   };
 
@@ -343,6 +367,17 @@ export const WorkspaceDetailPage: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResendInvite(inv.id, inv.email)}
+                        isLoading={resendingInviteId === inv.id}
+                        className="text-xs text-primary-600 gap-1"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        Resend
+                      </Button>
+
+                      <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
@@ -350,7 +385,9 @@ export const WorkspaceDetailPage: React.FC = () => {
                           navigator.clipboard.writeText(inviteUrl);
                           toast.success('Invitation link copied to clipboard!');
                         }}
+                        className="text-xs gap-1"
                       >
+                        <Copy className="w-3.5 h-3.5" />
                         Copy Link
                       </Button>
 
@@ -359,6 +396,7 @@ export const WorkspaceDetailPage: React.FC = () => {
                           variant="danger"
                           size="sm"
                           onClick={() => handleCancelInvite(inv.id)}
+                          className="text-xs"
                         >
                           Cancel
                         </Button>

@@ -37,14 +37,44 @@ export class InvitationsRepository {
     });
   }
 
+  async findById(id: string) {
+    return prisma.workspaceInvitation.findUnique({
+      where: { id },
+      include: {
+        workspace: { select: { id: true, name: true } },
+        inviter: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
   async findPendingInvitation(workspaceId: string, email: string) {
     return prisma.workspaceInvitation.findFirst({
       where: {
         workspaceId,
         email: email.toLowerCase(),
         status: InvitationStatus.PENDING,
-        expiresAt: { gt: new Date() }
-      }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateInvitation(
+    id: string,
+    data: {
+      inviterId?: string;
+      role?: WorkspaceRole;
+      token?: string;
+      expiresAt?: Date;
+      status?: InvitationStatus;
+    }
+  ) {
+    return prisma.workspaceInvitation.update({
+      where: { id },
+      data,
+      include: {
+        workspace: { select: { id: true, name: true } },
+        inviter: { select: { id: true, name: true, email: true } },
+      },
     });
   }
 
@@ -86,6 +116,28 @@ export class InvitationsRepository {
           workspace: { select: { id: true, name: true, slug: true } }
         }
       });
+
+      // 3. For workspace MEMBER or ADMIN, automatically enroll them in existing workspace projects
+      if (role === WorkspaceRole.MEMBER || role === WorkspaceRole.ADMIN) {
+        const workspaceProjects = await tx.project.findMany({
+          where: { workspaceId, deletedAt: null, isArchived: false },
+          select: { id: true }
+        });
+
+        for (const proj of workspaceProjects) {
+          await tx.projectMember.upsert({
+            where: {
+              projectId_userId: { projectId: proj.id, userId }
+            },
+            create: {
+              projectId: proj.id,
+              userId,
+              role: role === WorkspaceRole.ADMIN ? 'MANAGER' : 'MEMBER'
+            },
+            update: {}
+          });
+        }
+      }
 
       return member;
     });

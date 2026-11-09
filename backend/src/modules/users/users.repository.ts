@@ -49,7 +49,8 @@ export class UsersRepository {
           _count: {
             select: {
               workspaceMemberships: true,
-              projectMemberships: true
+              projectMemberships: true,
+              taskAssignments: true
             }
           }
         },
@@ -60,6 +61,30 @@ export class UsersRepository {
     ]);
 
     return { total, items };
+  }
+
+  async deleteUser(userId: string) {
+    return prisma.$transaction(async (tx) => {
+      // 1. Revoke all user tokens
+      await tx.refreshToken.deleteMany({ where: { userId } });
+      await tx.passwordResetToken.deleteMany({ where: { userId } });
+      await tx.emailVerificationToken.deleteMany({ where: { userId } });
+
+      // 2. Remove memberships and task assignments
+      await tx.workspaceMember.deleteMany({ where: { userId } });
+      await tx.projectMember.deleteMany({ where: { userId } });
+      await tx.taskAssignee.deleteMany({ where: { userId } });
+
+      // 3. Mark user as soft-deleted and suspended
+      return tx.user.update({
+        where: { id: userId },
+        data: {
+          deletedAt: new Date(),
+          status: UserStatus.SUSPENDED,
+          platformRole: PlatformRole.USER
+        }
+      });
+    });
   }
 
   async searchUsers(query: string, currentUserId: string): Promise<Pick<User, 'id' | 'name' | 'email' | 'avatarUrl'>[]> {

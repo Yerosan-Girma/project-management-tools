@@ -11,6 +11,7 @@ import { registerSchema, RegisterFormData } from '../schemas/auth.schema';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../../../stores/auth-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
+import { getErrorMessage } from '../../../utils/error';
 
 export const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -64,9 +65,7 @@ export const RegisterPage: React.FC = () => {
       }
       navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
-      const errorMsg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Registration failed. This email may already be registered.';
+      const errorMsg = getErrorMessage(err, 'Registration failed. This email may already be registered.');
       setApiError(errorMsg);
       toast.error(errorMsg);
     }

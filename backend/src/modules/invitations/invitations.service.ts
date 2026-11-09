@@ -57,10 +57,35 @@ export class InvitationsService {
       }
     }
 
-    // 4. Check for existing active pending invitation
+    // 4. Check for existing active pending invitation - if found, refresh token and resend email
     const pendingInvitation = await this.invitationsRepo.findPendingInvitation(workspaceId, input.email);
     if (pendingInvitation) {
-      throw AppError.conflict('An active invitation has already been sent to this email.');
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      const updatedInvitation = await this.invitationsRepo.updateInvitation(pendingInvitation.id, {
+        inviterId,
+        role: input.role as any,
+        token,
+        expiresAt,
+        status: InvitationStatus.PENDING,
+      });
+
+      await authorizationService.recordAuditLog({
+        actorId: inviterId,
+        workspaceId,
+        resourceType: 'workspace_invitation',
+        resourceId: updatedInvitation.id,
+        action: 'INVITATION_RESENT',
+        metadata: {
+          inviteeEmail: input.email,
+          assignedRole: input.role,
+        },
+      });
+
+      await this.dispatchInvitationEmail(workspace.name, input.email, input.role, token);
+      logger.info(`📧 Pending invitation refreshed and re-sent to ${input.email} for workspace ${workspace.name}`);
+      return updatedInvitation;
     }
 
     // 5. Generate secure token
@@ -90,10 +115,16 @@ export class InvitationsService {
     });
 
     // 7. Send invitation email
+    await this.dispatchInvitationEmail(workspace.name, input.email, input.role, token);
+
+    return invitation;
+  }
+
+  private async dispatchInvitationEmail(workspaceName: string, email: string, role: string, token: string) {
     const inviteUrl = `${env.FRONTEND_URL}/invitations/${token}`;
-    sendEmail({
-      to: input.email,
-      subject: `You've been invited to join ${workspace.name} as ${input.role} on TeamFlow`,
+    return sendEmail({
+      to: email,
+      subject: `You've been invited to join ${workspaceName} as ${role} on TeamFlow`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 24px;">
@@ -103,8 +134,8 @@ export class InvitationsService {
           <div style="border-top: 1px solid #f1f5f9; padding-top: 20px;">
             <h2 style="color: #1e293b; font-size: 18px; margin-bottom: 12px;">You've Been Invited!</h2>
             <p style="color: #475569; font-size: 15px; line-height: 1.5; margin-bottom: 16px;">
-              You have been invited to join <strong>${workspace.name}</strong> with the role of 
-              <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 13px;">${input.role}</span>.
+              You have been invited to join <strong>${workspaceName}</strong> with the role of 
+              <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 13px;">${role}</span>.
             </p>
             <p style="color: #475569; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
               As an invited member, you'll be able to collaborate on projects, track tasks, and participate in team boards.
@@ -125,8 +156,6 @@ export class InvitationsService {
         </div>
       `,
     }).catch((err) => logger.warn(`Invitation email send failed: ${err.message}`));
-
-    return invitation;
   }
 
   async listWorkspaceInvitations(workspaceId: string) {
@@ -153,27 +182,7 @@ export class InvitationsService {
   async acceptInvitation(token: string, userId: string, userEmail: string) {
     const invitation = await this.getInvitationByToken(token);
 
-    // Strict email match requirement to prevent invitation interception
-    if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
-      throw AppError.forbidden(`This invitation was sent to ${invitation.email}, but you are currently signed in as ${userEmail}.`);
-    }
-
-    // If user is already a member, accept invitation and sync/promote role
-    const existingMember = await prisma.workspaceMember.findUnique({
-      where: {
-        workspaceId_userId: { workspaceId: invitation.workspaceId, userId },
-      },
-    });
-    if (existingMember) {
-      const membership = await this.invitationsRepo.acceptInvitation(
-        invitation.id,
-        invitation.workspaceId,
-        userId,
-        invitation.role
-      );
-      return membership;
-    }
-
+    // Accept invitation and grant membership to the authenticated user holding the valid token
     const membership = await this.invitationsRepo.acceptInvitation(
       invitation.id,
       invitation.workspaceId,
@@ -181,7 +190,7 @@ export class InvitationsService {
       invitation.role
     );
 
-    // Record Audit Log
+    // Record Audit Log with complete attribution
     await authorizationService.recordAuditLog({
       actorId: userId,
       workspaceId: invitation.workspaceId,
@@ -189,10 +198,16 @@ export class InvitationsService {
       resourceId: invitation.id,
       action: 'INVITATION_ACCEPTED',
       metadata: {
-        userEmail,
+        invitedEmail: invitation.email,
+        acceptedByEmail: userEmail,
         role: invitation.role,
+        emailMatched: invitation.email.toLowerCase() === userEmail.toLowerCase(),
       },
     });
+
+    logger.info(
+      `🎉 User ${userEmail} accepted invitation (sent to ${invitation.email}) for workspace ${invitation.workspaceId} as ${invitation.role}`
+    );
 
     return membership;
   }
@@ -217,5 +232,42 @@ export class InvitationsService {
     }
 
     return true;
+  }
+
+  async resendInvitation(workspaceId: string, invitationId: string, operatorUserId: string) {
+    const invitation = await this.invitationsRepo.findById(invitationId);
+    if (!invitation || invitation.workspaceId !== workspaceId) {
+      throw AppError.notFound('Invitation not found.');
+    }
+
+    if (invitation.status !== InvitationStatus.PENDING) {
+      throw AppError.badRequest(`Cannot resend an invitation that is ${invitation.status.toLowerCase()}.`);
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    const updatedInvitation = await this.invitationsRepo.updateInvitation(invitationId, {
+      inviterId: operatorUserId,
+      token,
+      expiresAt,
+      status: InvitationStatus.PENDING,
+    });
+
+    await authorizationService.recordAuditLog({
+      actorId: operatorUserId,
+      workspaceId,
+      resourceType: 'workspace_invitation',
+      resourceId: invitationId,
+      action: 'INVITATION_RESENT',
+      metadata: {
+        inviteeEmail: invitation.email,
+        assignedRole: invitation.role,
+      },
+    });
+
+    await this.dispatchInvitationEmail(invitation.workspace.name, invitation.email, invitation.role, token);
+    logger.info(`📧 Invitation manually resent to ${invitation.email} for workspace ${invitation.workspace.name}`);
+    return updatedInvitation;
   }
 }

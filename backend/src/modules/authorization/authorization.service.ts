@@ -179,6 +179,8 @@ export class AuthorizationService {
       effectiveRole = ProjectRole.MANAGER;
     } else if (projMember) {
       effectiveRole = projMember.role as ProjectRole;
+    } else if (wsMember.role === WorkspaceRole.MEMBER) {
+      effectiveRole = ProjectRole.MEMBER;
     } else {
       return { allowed: false, reason: 'You are not a member of this project.' };
     }
@@ -247,6 +249,8 @@ export class AuthorizationService {
       effectiveRole = ProjectRole.MANAGER;
     } else if (projMember) {
       effectiveRole = projMember.role as ProjectRole;
+    } else if (wsMember.role === WorkspaceRole.MEMBER) {
+      effectiveRole = ProjectRole.MEMBER;
     } else {
       return { allowed: false, reason: 'You are not a member of the project containing this task.' };
     }

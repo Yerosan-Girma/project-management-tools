@@ -54,4 +54,10 @@ router.patch(
   asyncHandler(controller.updateUserStatus)
 );
 
+router.delete(
+  '/:userId',
+  requirePlatformPermission('platform:users:manage'),
+  asyncHandler(controller.deleteUser)
+);
+
 export default router;

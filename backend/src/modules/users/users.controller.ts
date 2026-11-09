@@ -63,4 +63,9 @@ export class UsersController {
     );
     ApiResponse.success(res, 'User status updated successfully.', updated);
   };
+
+  deleteUser = async (req: Request, res: Response): Promise<void> => {
+    await this.usersService.deleteUser(req.user!.id, req.params.userId);
+    ApiResponse.success(res, 'User deleted successfully.');
+  };
 }

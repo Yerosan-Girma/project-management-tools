@@ -7,12 +7,10 @@ import {
   ArrowRight,
   ShieldCheck,
   AlertCircle,
-  LogIn,
-  UserPlus,
   LogOut,
   Lock,
   KeyRound,
-  CheckCircle2,
+  Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { workspaceService } from '../../workspaces/services/workspace.service';
@@ -24,6 +22,7 @@ import { Input } from '../../../components/ui/Input';
 import { Badge } from '../../../components/ui/Badge';
 import { useAuthStore } from '../../../stores/auth-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
+import { getErrorMessage } from '../../../utils/error';
 
 export const AcceptInvitationPage: React.FC = () => {
   const { token: paramToken } = useParams<{ token: string }>();
@@ -34,9 +33,10 @@ export const AcceptInvitationPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // In-page form state for zero-redirect onboarding
+  // In-page form state for onboarding
   const [authMode, setAuthMode] = useState<'REGISTER' | 'LOGIN'>('REGISTER');
   const [name, setName] = useState('');
+  const [inputEmail, setInputEmail] = useState('');
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -53,8 +53,11 @@ export const AcceptInvitationPage: React.FC = () => {
       try {
         const details = await workspaceService.getInvitationDetails(token);
         setInvitation(details);
-      } catch {
-        toast.error('Invitation is invalid or has expired.');
+        if (details?.email) {
+          setInputEmail(details.email);
+        }
+      } catch (err: unknown) {
+        toast.error(getErrorMessage(err, 'Invitation is invalid or has expired.'));
       } finally {
         setIsLoading(false);
       }
@@ -73,7 +76,7 @@ export const AcceptInvitationPage: React.FC = () => {
     navigate('/dashboard', { replace: true });
   };
 
-  // 1. One-click Accept when already logged in with matching email
+  // 1. One-click Accept when logged in
   const handleDirectAccept = async () => {
     if (!token) return;
     try {
@@ -82,9 +85,7 @@ export const AcceptInvitationPage: React.FC = () => {
       const ws = result?.workspace || invitation?.workspace;
       activateWorkspaceAndGo(ws, invitation?.role || 'member');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Failed to accept invitation.';
+      const msg = getErrorMessage(err, 'Failed to accept invitation.');
       toast.error(msg);
     } finally {
       setIsProcessing(false);
@@ -100,8 +101,20 @@ export const AcceptInvitationPage: React.FC = () => {
       setFormError('Please enter your full name.');
       return;
     }
+
+    const targetEmail = (inputEmail || invitation.email).trim().toLowerCase();
+    if (!targetEmail || !/^\S+@\S+\.\S+$/.test(targetEmail)) {
+      setFormError('Please enter a valid email address.');
+      return;
+    }
+
     if (password.length < 8) {
       setFormError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setFormError('Password must contain at least one letter and one number.');
       return;
     }
 
@@ -111,7 +124,7 @@ export const AcceptInvitationPage: React.FC = () => {
 
       const result = await authService.register({
         name: name.trim(),
-        email: invitation.email,
+        email: targetEmail,
         password,
         inviteToken: token,
       });
@@ -121,9 +134,7 @@ export const AcceptInvitationPage: React.FC = () => {
       const ws = result.joinedWorkspace || invitation.workspace;
       activateWorkspaceAndGo(ws, invitation.role);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Registration failed. If you already have an account, please switch to Sign In.';
+      const msg = getErrorMessage(err, 'Registration failed. If you already have an account, please switch to Sign In.');
       setFormError(msg);
       toast.error(msg);
     } finally {
@@ -136,6 +147,12 @@ export const AcceptInvitationPage: React.FC = () => {
     e.preventDefault();
     if (!token || !invitation) return;
 
+    const targetEmail = (inputEmail || invitation.email).trim().toLowerCase();
+    if (!targetEmail) {
+      setFormError('Please enter your email address.');
+      return;
+    }
+
     if (!password) {
       setFormError('Please enter your password.');
       return;
@@ -147,7 +164,7 @@ export const AcceptInvitationPage: React.FC = () => {
 
       // Sign in
       const loginResult = await authService.login({
-        email: invitation.email,
+        email: targetEmail,
         password,
       });
       setAuth(loginResult.user, loginResult.tokens);
@@ -157,9 +174,7 @@ export const AcceptInvitationPage: React.FC = () => {
       const ws = acceptResult?.workspace || invitation.workspace;
       activateWorkspaceAndGo(ws, invitation.role);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Invalid password. Please check your credentials.';
+      const msg = getErrorMessage(err, 'Invalid email or password. Please check your credentials.');
       setFormError(msg);
       toast.error(msg);
     } finally {
@@ -167,11 +182,13 @@ export const AcceptInvitationPage: React.FC = () => {
     }
   };
 
-  // 4. Switch Account: Log out current user (e.g. Alice) and stay right here
+  // 4. Switch Account: Log out current user and stay right here
   const handleSwitchAccount = () => {
     logout();
+    setInputEmail(invitation?.email || '');
+    setPassword('');
     setFormError(null);
-    toast.info(`Signed out. You can now join as ${invitation?.email}.`);
+    toast.info('Signed out. You can now join or sign in with another account.');
   };
 
   if (isLoading) {
@@ -255,34 +272,37 @@ export const AcceptInvitationPage: React.FC = () => {
             </p>
           </div>
 
-          {/* SCENARIO 1: Currently Logged In as a DIFFERENT user (e.g. Alice) */}
+          {/* SCENARIO 1: Currently Logged In with DIFFERENT user email */}
           {emailMismatch && (
             <div className="space-y-4">
-              <div className="p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs">
+              <div className="p-3.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-xs">
                 <div className="flex items-center gap-2 font-semibold">
-                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>Session Mismatch</span>
+                  <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span>Ready to Join Workspace</span>
                 </div>
                 <p className="mt-1.5 leading-relaxed">
-                  You are currently logged in as <strong>{user?.email}</strong>. 
-                  This invite is reserved exclusively for <strong>{invitation.email}</strong>.
+                  You are currently signed in as <strong>{user?.email}</strong>.
+                  This invite was addressed to <strong>{invitation.email}</strong>.
+                  You can accept with your current account, or switch to another user.
                 </p>
               </div>
 
               <div className="flex flex-col gap-2 pt-1">
                 <Button
                   className="w-full"
-                  onClick={handleSwitchAccount}
-                  leftIcon={<LogOut className="w-4 h-4" />}
+                  isLoading={isProcessing}
+                  onClick={handleDirectAccept}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
                 >
-                  Switch to {invitation.email} & Join
+                  Accept & Join as {user?.email}
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={handleSwitchAccount}
+                  leftIcon={<LogOut className="w-4 h-4" />}
                 >
-                  Return to Current Dashboard
+                  Sign in or register as {invitation.email}
                 </Button>
               </div>
             </div>
@@ -361,22 +381,34 @@ export const AcceptInvitationPage: React.FC = () => {
                     required
                   />
 
-                  <Input
-                    label="Email Address"
-                    value={invitation.email}
-                    disabled
-                    startIcon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                  />
+                  <div>
+                    <Input
+                      label="Email Address"
+                      placeholder="your.email@example.com"
+                      value={inputEmail}
+                      onChange={(e) => setInputEmail(e.target.value)}
+                      startIcon={<Mail className="w-4 h-4" />}
+                      required
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Pre-filled with invited address. You can update this if you prefer another real email.
+                    </p>
+                  </div>
 
-                  <Input
-                    label="Create Password"
-                    type="password"
-                    placeholder="At least 8 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    startIcon={<Lock className="w-4 h-4" />}
-                    required
-                  />
+                  <div>
+                    <Input
+                      label="Create Password"
+                      type="password"
+                      placeholder="At least 8 characters with letters & numbers"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      startIcon={<Lock className="w-4 h-4" />}
+                      required
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Must be at least 8 characters long, containing both letters and numbers.
+                    </p>
+                  </div>
 
                   <Button
                     type="submit"
@@ -392,9 +424,11 @@ export const AcceptInvitationPage: React.FC = () => {
                 <form onSubmit={handleInPageLogin} className="space-y-3">
                   <Input
                     label="Email Address"
-                    value={invitation.email}
-                    disabled
-                    startIcon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                    placeholder="your.account@company.com"
+                    value={inputEmail}
+                    onChange={(e) => setInputEmail(e.target.value)}
+                    startIcon={<Mail className="w-4 h-4" />}
+                    required
                   />
 
                   <Input

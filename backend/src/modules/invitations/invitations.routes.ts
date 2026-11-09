@@ -51,4 +51,11 @@ router.delete(
   asyncHandler(controller.cancel)
 );
 
+router.post(
+  '/workspaces/:workspaceId/:invitationId/resend',
+  authenticate,
+  requireWorkspacePermission('workspace:members:invite'),
+  asyncHandler(controller.resend)
+);
+
 export default router;

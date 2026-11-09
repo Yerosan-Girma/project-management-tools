@@ -10,6 +10,7 @@ import { Select } from '../../../components/ui/Select';
 import { Button } from '../../../components/ui/Button';
 import { workspaceService } from '../services/workspace.service';
 import { WorkspaceRole } from '../../../types/workspace.types';
+import { getErrorMessage } from '../../../utils/error';
 
 const inviteSchema = z.object({
   email: z.string().trim().email('Please enter a valid email address'),
@@ -43,15 +44,25 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
 
   const onSubmit = async (data: InviteFormData) => {
     try {
-      await workspaceService.inviteMember(workspaceId, data.email, data.role as WorkspaceRole);
-      toast.success(`Invitation sent to ${data.email}`);
+      const created = await workspaceService.inviteMember(workspaceId, data.email, data.role as WorkspaceRole);
+      const inviteUrl = created?.token ? `${window.location.origin}/invitations/${created.token}` : null;
+      
+      toast.success(`Invitation sent to ${data.email}`, {
+        description: 'Invitation email dispatched. You can also share the direct link.',
+        action: inviteUrl ? {
+          label: 'Copy Link',
+          onClick: () => {
+            navigator.clipboard.writeText(inviteUrl);
+            toast.success('Invitation link copied to clipboard!');
+          },
+        } : undefined,
+      });
+
       reset();
       onClose();
       onInvited?.();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Failed to send invitation';
+      const msg = getErrorMessage(err, 'Failed to send invitation');
       toast.error(msg);
     }
   };

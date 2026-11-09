@@ -11,6 +11,14 @@ export class AuthRepository {
     });
   }
 
+  async findAnyUserByEmail(email: string): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: {
+        email: email.toLowerCase()
+      }
+    });
+  }
+
   async findUserById(id: string): Promise<User | null> {
     return prisma.user.findFirst({
       where: {

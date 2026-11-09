@@ -9,6 +9,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { resetPasswordSchema, ResetPasswordFormData } from '../schemas/auth.schema';
 import { authService } from '../services/auth.service';
+import { getErrorMessage } from '../../../utils/error';
 
 export const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -45,9 +46,7 @@ export const ResetPasswordPage: React.FC = () => {
       toast.success('Password updated successfully! You can now sign in.');
       navigate('/login');
     } catch (err: unknown) {
-      const errorMsg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Password reset failed. The token may be expired or already used.';
+      const errorMsg = getErrorMessage(err, 'Password reset failed. The token may be expired or already used.');
       setApiError(errorMsg);
       toast.error(errorMsg);
     }

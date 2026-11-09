@@ -109,7 +109,7 @@ export class ProjectsRepository {
   async listWorkspaceProjects(
     workspaceId: string,
     userId: string,
-    isWorkspaceAdminOrOwner: boolean,
+    isGuest: boolean,
     status?: ProjectStatus,
     priority?: PriorityLevel
   ) {
@@ -126,8 +126,9 @@ export class ProjectsRepository {
       whereClause.priority = priority;
     }
 
-    // If not a workspace admin or owner, user only sees projects they are a member of
-    if (!isWorkspaceAdminOrOwner) {
+    // Workspace Owners, Admins, and Members can view all workspace projects.
+    // Only workspace GUESTs are restricted to projects they are explicitly assigned to.
+    if (isGuest) {
       whereClause.members = {
         some: { userId }
       };

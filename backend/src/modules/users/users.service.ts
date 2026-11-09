@@ -4,6 +4,7 @@ import { UsersRepository } from './users.repository';
 import { AppError } from '../../utils/app-error';
 import { PlatformRole } from '../../constants/roles';
 import { UserStatus } from '../../constants/status';
+import { logger } from '../../utils/logger';
 import {
   UpdateProfileInput,
   ChangePasswordInput,
@@ -95,7 +96,40 @@ export class UsersService {
         workspaceMemberships: {
           include: {
             workspace: {
-              select: { id: true, name: true, slug: true },
+              select: { id: true, name: true, slug: true, ownerId: true },
+            },
+          },
+        },
+        projectMemberships: {
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+                key: true,
+                status: true,
+                priority: true,
+                workspaceId: true,
+              },
+            },
+          },
+        },
+        taskAssignments: {
+          include: {
+            task: {
+              select: {
+                id: true,
+                title: true,
+                priority: true,
+                dueDate: true,
+                column: {
+                  select: { id: true, name: true, color: true },
+                },
+                projectId: true,
+                project: {
+                  select: { id: true, name: true, key: true },
+                },
+              },
             },
           },
         },
@@ -107,6 +141,36 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  async deleteUser(operatorUserId: string, targetUserId: string) {
+    if (operatorUserId === targetUserId) {
+      throw AppError.badRequest('You cannot delete your own Platform Administrator account.');
+    }
+
+    const targetUser = await this.usersRepo.findById(targetUserId);
+    if (!targetUser) {
+      throw AppError.notFound('Target user not found.');
+    }
+
+    if (targetUser.platformRole === PlatformRole.PLATFORM_ADMIN) {
+      const adminCount = await prisma.user.count({
+        where: {
+          platformRole: PlatformRole.PLATFORM_ADMIN,
+          deletedAt: null,
+          status: UserStatus.ACTIVE,
+        },
+      });
+
+      if (adminCount <= 1) {
+        throw AppError.badRequest('Cannot delete the last active Platform Administrator.');
+      }
+    }
+
+    await this.usersRepo.deleteUser(targetUserId);
+
+    logger.info(`🗑️ User ${targetUser.email} deleted by Platform Admin ${operatorUserId}`);
+    return true;
   }
 
   async updatePlatformRole(

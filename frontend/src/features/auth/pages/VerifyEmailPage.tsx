@@ -4,6 +4,7 @@ import { CheckCircle2, XCircle, Loader2, ArrowRight } from 'lucide-react';
 import { AuthLayout } from '../../../components/layout/AuthLayout';
 import { Button } from '../../../components/ui/Button';
 import { authService } from '../services/auth.service';
+import { getErrorMessage } from '../../../utils/error';
 
 export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -24,9 +25,7 @@ export const VerifyEmailPage: React.FC = () => {
         setStatus('success');
       } catch (err: unknown) {
         setStatus('error');
-        const msg =
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Email verification link is invalid or expired.';
+        const msg = getErrorMessage(err, 'Email verification link is invalid or expired.');
         setErrorMessage(msg);
       }
     };

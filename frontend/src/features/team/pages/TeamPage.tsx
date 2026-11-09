@@ -10,6 +10,8 @@ import {
   Crown,
   FolderGit2,
   Loader2,
+  Copy,
+  Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../../stores/auth-store';
@@ -134,6 +136,30 @@ export const TeamPage: React.FC = () => {
       setInvitations((prev) => prev.filter((i) => i.id !== invitationId));
     } catch {
       toast.error('Failed to cancel invitation');
+    }
+  };
+
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+
+  // Handle resend invitation email
+  const handleResendInvite = async (invitationId: string, email: string) => {
+    if (!currentWorkspace?.id) return;
+    try {
+      setResendingInviteId(invitationId);
+      const updated = await workspaceService.resendInvitation(currentWorkspace.id, invitationId);
+      toast.success(`Invitation email resent to ${email}!`, {
+        description: 'A refreshed 7-day invitation link has been dispatched to their inbox.',
+      });
+      setInvitations((prev) =>
+        prev.map((i) => (i.id === invitationId ? updated : i))
+      );
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to resend invitation email';
+      toast.error(msg);
+    } finally {
+      setResendingInviteId(null);
     }
   };
 
@@ -446,16 +472,41 @@ export const TeamPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {isOwnerOrAdmin && (
+                  <div className="flex items-center gap-1.5">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => handleCancelInvite(inv.id)}
-                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs"
+                      onClick={() => handleResendInvite(inv.id, inv.email)}
+                      isLoading={resendingInviteId === inv.id}
+                      className="text-xs gap-1.5 text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950"
                     >
-                      Revoke
+                      <Send className="w-3.5 h-3.5" />
+                      Resend Email
                     </Button>
-                  )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = `${window.location.origin}/invitations/${inv.token}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success(`Invitation link for ${inv.email} copied to clipboard!`);
+                      }}
+                      className="text-xs gap-1.5"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy Link
+                    </Button>
+                    {isOwnerOrAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCancelInvite(inv.id)}
+                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs"
+                      >
+                        Revoke
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
