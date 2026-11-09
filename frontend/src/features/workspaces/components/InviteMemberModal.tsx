@@ -48,7 +48,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       const inviteUrl = created?.token ? `${window.location.origin}/invitations/${created.token}` : null;
       
       toast.success(`Invitation sent to ${data.email}`, {
-        description: 'Invitation email dispatched. You can also share the direct link.',
+        description: 'Invitation email dispatched! (Check Spam or Promotions if not in Inbox, or copy the direct link).',
         action: inviteUrl ? {
           label: 'Copy Link',
           onClick: () => {

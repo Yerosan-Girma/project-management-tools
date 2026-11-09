@@ -56,4 +56,36 @@ export class InvitationsController {
     );
     ApiResponse.success(res, 'Invitation email resent successfully.', invitation);
   };
+
+  inviteProjectMember = async (req: Request, res: Response): Promise<void> => {
+    const invitation = await this.invitationsService.inviteProjectMember(
+      req.params.projectId,
+      req.user!.id,
+      req.body
+    );
+    ApiResponse.created(res, 'Project invitation sent successfully.', invitation);
+  };
+
+  listProjectInvitations = async (req: Request, res: Response): Promise<void> => {
+    const invitations = await this.invitationsService.listProjectInvitations(req.params.projectId);
+    ApiResponse.success(res, 'Project invitations retrieved.', invitations);
+  };
+
+  resendProjectInvitation = async (req: Request, res: Response): Promise<void> => {
+    const invitation = await this.invitationsService.resendProjectInvitation(
+      req.params.projectId,
+      req.params.invitationId,
+      req.user!.id
+    );
+    ApiResponse.success(res, 'Project invitation email resent successfully.', invitation);
+  };
+
+  cancelProjectInvitation = async (req: Request, res: Response): Promise<void> => {
+    await this.invitationsService.cancelProjectInvitation(
+      req.params.projectId,
+      req.params.invitationId,
+      req.user!.id
+    );
+    ApiResponse.success(res, 'Project invitation cancelled.');
+  };
 }

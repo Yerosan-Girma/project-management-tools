@@ -65,15 +65,21 @@ export const AcceptInvitationPage: React.FC = () => {
     fetchInvite();
   }, [token]);
 
-  // Navigate to Dashboard with proper active workspace context
-  const activateWorkspaceAndGo = (ws: any, roleName: string) => {
+  // Navigate to Project or Dashboard with proper active workspace context
+  const activateWorkspaceAndGo = (ws: any, roleName: string, targetProjectId?: string | null) => {
     if (ws) {
       setCurrentWorkspace(ws);
       addWorkspace(ws);
       localStorage.setItem('teamflow_active_workspace_id', ws.id);
     }
-    toast.success(`Welcome to ${ws?.name || 'the workspace'}! You have joined as ${roleName}.`);
-    navigate('/dashboard', { replace: true });
+    const projId = targetProjectId || invitation?.projectId || invitation?.project?.id;
+    if (projId) {
+      toast.success(`Welcome to ${invitation?.project?.name || 'the project'}! You joined as ${roleName}.`);
+      navigate(`/projects/${projId}`, { replace: true });
+    } else {
+      toast.success(`Welcome to ${ws?.name || 'the workspace'}! You have joined as ${roleName}.`);
+      navigate('/dashboard', { replace: true });
+    }
   };
 
   // 1. One-click Accept when logged in
@@ -83,7 +89,11 @@ export const AcceptInvitationPage: React.FC = () => {
       setIsProcessing(true);
       const result = await workspaceService.acceptInvitation(token);
       const ws = result?.workspace || invitation?.workspace;
-      activateWorkspaceAndGo(ws, invitation?.role || 'member');
+      activateWorkspaceAndGo(
+        ws,
+        invitation?.projectRole || invitation?.role || 'member',
+        result?.projectId || invitation?.projectId
+      );
     } catch (err: unknown) {
       const msg = getErrorMessage(err, 'Failed to accept invitation.');
       toast.error(msg);
@@ -132,7 +142,11 @@ export const AcceptInvitationPage: React.FC = () => {
       setAuth(result.user, result.tokens);
 
       const ws = result.joinedWorkspace || invitation.workspace;
-      activateWorkspaceAndGo(ws, invitation.role);
+      activateWorkspaceAndGo(
+        ws,
+        invitation.projectRole || invitation.role,
+        invitation.projectId
+      );
     } catch (err: unknown) {
       const msg = getErrorMessage(err, 'Registration failed. If you already have an account, please switch to Sign In.');
       setFormError(msg);
@@ -172,7 +186,11 @@ export const AcceptInvitationPage: React.FC = () => {
       // Accept invitation
       const acceptResult = await workspaceService.acceptInvitation(token);
       const ws = acceptResult?.workspace || invitation.workspace;
-      activateWorkspaceAndGo(ws, invitation.role);
+      activateWorkspaceAndGo(
+        ws,
+        invitation.projectRole || invitation.role,
+        acceptResult?.projectId || invitation.projectId
+      );
     } catch (err: unknown) {
       const msg = getErrorMessage(err, 'Invalid email or password. Please check your credentials.');
       setFormError(msg);
@@ -258,17 +276,32 @@ export const AcceptInvitationPage: React.FC = () => {
               </span>
             </div>
 
+            {invitation.project && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Target Project</span>
+                <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
+                  {invitation.project.name} ({invitation.project.key})
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
               <span className="text-xs text-slate-500">Assigned Role</span>
               <Badge variant={invitation.role === 'ADMIN' ? 'danger' : 'primary'} size="sm">
-                {invitation.role}
+                {invitation.projectRole ? `Project ${invitation.projectRole}` : invitation.role}
               </Badge>
             </div>
 
             <p className="text-[11px] text-slate-500 dark:text-slate-400 italic pt-1">
-              {invitation.role === 'ADMIN' && '⭐ Admins have full access to manage projects, boards, and members.'}
-              {invitation.role === 'MEMBER' && '🔹 Members can create, edit, and collaborate on projects and tasks.'}
-              {invitation.role === 'GUEST' && '👁️ Guests have view-only access to assigned projects and tasks.'}
+              {invitation.project ? (
+                <>🚀 You will be granted direct collaboration access to the <strong>{invitation.project.name}</strong> project board.</>
+              ) : (
+                <>
+                  {invitation.role === 'ADMIN' && '⭐ Admins have full access to manage projects, boards, and members.'}
+                  {invitation.role === 'MEMBER' && '🔹 Members can create, edit, and collaborate on projects and tasks.'}
+                  {invitation.role === 'GUEST' && '👁️ Guests have view-only access to assigned projects and tasks.'}
+                </>
+              )}
             </p>
           </div>
 

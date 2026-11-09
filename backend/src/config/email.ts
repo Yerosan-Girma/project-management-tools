@@ -51,12 +51,27 @@ export interface SendEmailOptions {
 export async function sendEmail({ to, subject, text, html, category }: SendEmailOptions): Promise<boolean> {
   try {
     const transport = getEmailTransporter();
+
+    // Auto-generate plain-text fallback if text is not provided to ensure high deliverability and avoid spam classification
+    const plainText =
+      text ||
+      html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
     const mailOptions: Record<string, any> = {
       from: env.EMAIL_FROM,
+      replyTo: env.SMTP_USER || undefined,
       to,
       subject,
-      text,
-      html
+      text: plainText,
+      html,
+      headers: {
+        'X-Priority': '3',
+        'X-Mailer': 'TeamFlow Mailer',
+      },
     };
 
     if (category) {

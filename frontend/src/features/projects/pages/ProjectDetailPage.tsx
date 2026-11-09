@@ -16,6 +16,9 @@ import {
   Calendar,
   Search,
   ArrowLeft,
+  Mail,
+  Send,
+  Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { projectService } from '../services/project.service';
@@ -31,7 +34,7 @@ import {
   PriorityLevel,
 } from '../../../types/project.types';
 import { Activity } from '../../../types/activity.types';
-import { WorkspaceMember } from '../../../types/workspace.types';
+import { WorkspaceMember, WorkspaceInvitation } from '../../../types/workspace.types';
 import { Board, BoardColumn } from '../../../types/board.types';
 import { Task } from '../../../types/task.types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
@@ -46,6 +49,7 @@ import { Tabs } from '../../../components/ui/Tabs';
 import { KanbanBoard } from '../../boards/components/KanbanBoard';
 import { CreateTaskModal } from '../../tasks/components/CreateTaskModal';
 import { TaskDetailModal } from '../../tasks/components/TaskDetailModal';
+import { getErrorMessage } from '../../../utils/error';
 
 export const ProjectDetailPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -80,19 +84,26 @@ export const ProjectDetailPage: React.FC = () => {
   const [targetDate, setTargetDate] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  // Add Member Modal
+  // Add Member Modal & Project Invitations
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedRole, setSelectedRole] = useState<ProjectRole>('MEMBER');
+  const [projectInvitations, setProjectInvitations] = useState<WorkspaceInvitation[]>([]);
+  const [inviteModalTab, setInviteModalTab] = useState<'workspace' | 'email'>('workspace');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteEmailRole, setInviteEmailRole] = useState<ProjectRole>('MEMBER');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
 
   const loadProjectData = useCallback(async () => {
     if (!projectId) return;
     try {
       setIsLoading(true);
-      const [proj, boardsData, tasksData] = await Promise.all([
+      const [proj, boardsData, tasksData, invData] = await Promise.all([
         projectService.getProject(projectId),
         boardService.getProjectBoards(projectId),
         taskService.getProjectTasks(projectId),
+        projectService.getProjectInvitations(projectId).catch(() => []),
       ]);
 
       setProject(proj);
@@ -103,6 +114,7 @@ export const ProjectDetailPage: React.FC = () => {
       setTargetDate(proj.targetDate ? proj.targetDate.slice(0, 10) : '');
       setMembers(proj.members || []);
       setBoards(boardsData);
+      setProjectInvitations(invData);
       const parsedTasks: Task[] = Array.isArray(tasksData)
         ? tasksData
         : (tasksData as any)?.items || [];
@@ -226,6 +238,69 @@ export const ProjectDetailPage: React.FC = () => {
       loadProjectData();
     } catch {
       toast.error('Failed to add project member');
+    }
+  };
+
+  const handleInviteByEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!project || !inviteEmail.trim()) return;
+    try {
+      setIsSendingInvite(true);
+      const created = await projectService.inviteProjectMember(
+        project.id,
+        inviteEmail.trim(),
+        inviteEmailRole
+      );
+      const inviteUrl = created?.token ? `${window.location.origin}/invitations/${created.token}` : null;
+      toast.success(`Project invitation sent to ${inviteEmail}`, {
+        description: `Invitation email dispatched! If not visible in Inbox, please check the Spam or Promotions folder.`,
+        action: inviteUrl
+          ? {
+              label: 'Copy Link',
+              onClick: () => {
+                navigator.clipboard.writeText(inviteUrl);
+                toast.success('Project invitation link copied to clipboard!');
+              },
+            }
+          : undefined,
+      });
+      setInviteEmail('');
+      setIsAddMemberOpen(false);
+      const updatedInvs = await projectService.getProjectInvitations(project.id).catch(() => []);
+      setProjectInvitations(updatedInvs);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to send project invitation'));
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  const handleResendProjectInvite = async (invitationId: string, email: string) => {
+    if (!project) return;
+    try {
+      setResendingInviteId(invitationId);
+      const updated = await projectService.resendProjectInvitation(project.id, invitationId);
+      toast.success(`Invitation email resent to ${email}!`, {
+        description: 'A refreshed 7-day link was sent to their email.',
+      });
+      setProjectInvitations((prev) =>
+        prev.map((i) => (i.id === invitationId ? updated : i))
+      );
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to resend invitation email'));
+    } finally {
+      setResendingInviteId(null);
+    }
+  };
+
+  const handleCancelProjectInvite = async (invitationId: string) => {
+    if (!project) return;
+    try {
+      await projectService.cancelProjectInvitation(project.id, invitationId);
+      toast.success('Project invitation revoked');
+      setProjectInvitations((prev) => prev.filter((i) => i.id !== invitationId));
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to cancel project invitation'));
     }
   };
 
@@ -665,54 +740,128 @@ export const ProjectDetailPage: React.FC = () => {
 
       {/* TAB 4: MEMBERS */}
       {currentTab === 'members' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Project Members ({members.length})</CardTitle>
-            <Button
-              size="sm"
-              onClick={() => setIsAddMemberOpen(true)}
-              leftIcon={<UserPlus className="w-3.5 h-3.5" />}
-            >
-              Add Project Member
-            </Button>
-          </CardHeader>
-          <CardContent className="divide-y divide-slate-100 dark:divide-slate-800">
-            {members.map((member) => (
-              <div key={member.id} className="py-3 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar src={member.user?.avatarUrl} name={member.user?.name} size="md" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                      {member.user?.name}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">{member.user?.email}</p>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Project Members ({members.length})</CardTitle>
+                <p className="text-xs text-slate-500 mt-1">
+                  Teammates actively collaborating on this project.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setIsAddMemberOpen(true)}
+                leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+              >
+                Add or Invite Member
+              </Button>
+            </CardHeader>
+            <CardContent className="divide-y divide-slate-100 dark:divide-slate-800">
+              {members.map((member) => (
+                <div key={member.id} className="py-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar src={member.user?.avatarUrl} name={member.user?.name} size="md" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        {member.user?.name}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">{member.user?.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={member.role}
+                      onChange={(e) => handleUpdateMemberRole(member.userId, e.target.value as ProjectRole)}
+                      className="text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 focus:ring-1 focus:ring-primary-500"
+                    >
+                      <option value="MANAGER">Manager</option>
+                      <option value="MEMBER">Member</option>
+                      <option value="VIEWER">Viewer</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMember(member.userId)}
+                      className="p-1.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      title="Remove from project"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
+              ))}
+            </CardContent>
+          </Card>
 
+          {/* Pending Project Invitations */}
+          {projectInvitations.length > 0 && (
+            <Card>
+              <CardHeader>
                 <div className="flex items-center gap-2">
-                  <select
-                    value={member.role}
-                    onChange={(e) => handleUpdateMemberRole(member.userId, e.target.value as ProjectRole)}
-                    className="text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 focus:ring-1 focus:ring-primary-500"
-                  >
-                    <option value="MANAGER">Manager</option>
-                    <option value="MEMBER">Member</option>
-                    <option value="VIEWER">Viewer</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveMember(member.userId)}
-                    className="p-1.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                    title="Remove from project"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <Mail className="w-4 h-4 text-primary-600" />
+                  <CardTitle className="text-sm">
+                    Pending Project Invitations ({projectInvitations.length})
+                  </CardTitle>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+                <p className="text-xs text-slate-500">
+                  Invited collaborators who haven't accepted their project invite yet.
+                </p>
+              </CardHeader>
+              <CardContent className="divide-y divide-slate-100 dark:divide-slate-800">
+                {projectInvitations.map((inv) => (
+                  <div key={inv.id} className="py-3 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                        {inv.email}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                        <span>Role: <strong className="text-slate-600 dark:text-slate-300">{inv.projectRole || 'MEMBER'}</strong></span>
+                        <span>•</span>
+                        <span>Expires {new Date(inv.expiresAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResendProjectInvite(inv.id, inv.email)}
+                        isLoading={resendingInviteId === inv.id}
+                        className="text-xs gap-1.5 text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-950"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        Resend
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const url = `${window.location.origin}/invitations/${inv.token}`;
+                          navigator.clipboard.writeText(url);
+                          toast.success(`Project invitation link for ${inv.email} copied!`);
+                        }}
+                        className="text-xs gap-1.5"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy Link
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCancelProjectInvite(inv.id)}
+                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs"
+                      >
+                        Revoke
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* TAB 5: ACTIVITY */}
@@ -874,53 +1023,127 @@ export const ProjectDetailPage: React.FC = () => {
         />
       )}
 
-      {/* Add Project Member Modal */}
+      {/* Add / Invite Project Member Modal */}
       <Modal
         isOpen={isAddMemberOpen}
         onClose={() => setIsAddMemberOpen(false)}
-        title="Assign Member to Project"
-        description="Select a teammate from this workspace to assign to the project."
+        title="Add Project Member"
+        description={`Add a teammate or invite an external collaborator to "${project?.name}".`}
       >
         <div className="space-y-4 pt-2">
-          {availableUsers.length === 0 ? (
-            <p className="text-xs text-slate-500">
-              All workspace members have already been added to this project.
-            </p>
+          {/* Tabs: Workspace vs Email */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setInviteModalTab('workspace')}
+              className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+                inviteModalTab === 'workspace'
+                  ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Workspace Member
+            </button>
+            <button
+              type="button"
+              onClick={() => setInviteModalTab('email')}
+              className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+                inviteModalTab === 'email'
+                  ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Invite by Email (Single Project)
+            </button>
+          </div>
+
+          {inviteModalTab === 'workspace' ? (
+            <div className="space-y-4 pt-1">
+              {availableUsers.length === 0 ? (
+                <div className="py-6 text-center space-y-3">
+                  <p className="text-xs text-slate-500">
+                    All existing workspace members are already assigned to this project.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setInviteModalTab('email')}
+                  >
+                    Invite New Collaborator by Email
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Select
+                    label="Select Teammate"
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                  >
+                    <option value="">Choose a team member...</option>
+                    {availableUsers.map((wm) => (
+                      <option key={wm.userId} value={wm.userId}>
+                        {wm.user?.name} ({wm.user?.email})
+                      </option>
+                    ))}
+                  </Select>
+
+                  <Select
+                    label="Project Role"
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value as ProjectRole)}
+                    options={[
+                      { value: 'MEMBER', label: 'Member — Create, edit, and move tasks' },
+                      { value: 'MANAGER', label: 'Manager — Manage boards, columns, and members' },
+                      { value: 'VIEWER', label: 'Viewer — Read-only observation' },
+                    ]}
+                  />
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setIsAddMemberOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button disabled={!selectedUserId} onClick={handleAddMember}>
+                      Assign to Project
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
-            <>
-              <Select
-                label="Select Teammate"
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-              >
-                <option value="">Choose a team member...</option>
-                {availableUsers.map((wm) => (
-                  <option key={wm.userId} value={wm.userId}>
-                    {wm.user?.name} ({wm.user?.email})
-                  </option>
-                ))}
-              </Select>
+            <form onSubmit={handleInviteByEmail} className="space-y-4 pt-1">
+              <Input
+                label="Collaborator Email"
+                type="email"
+                placeholder="contractor@company.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                required
+              />
 
               <Select
                 label="Project Role"
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as ProjectRole)}
+                value={inviteEmailRole}
+                onChange={(e) => setInviteEmailRole(e.target.value as ProjectRole)}
                 options={[
-                  { value: 'MEMBER', label: 'Member — Create and move tasks' },
-                  { value: 'MANAGER', label: 'Manager — Manage boards and members' },
-                  { value: 'VIEWER', label: 'Viewer — Read-only observation' },
+                  { value: 'MEMBER', label: 'Member — Create and move tasks on this board' },
+                  { value: 'MANAGER', label: 'Manager — Manage this project board & tasks' },
+                  { value: 'VIEWER', label: 'Viewer — Read-only client/stakeholder access' },
                 ]}
               />
 
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-[11px] text-slate-500 leading-relaxed">
+                🔒 <strong>Single-Project Access:</strong> This user will only be able to view and collaborate on this project (<strong>{project?.name}</strong>). Other workspace projects will remain hidden and inaccessible.
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setIsAddMemberOpen(false)}>
+                <Button variant="outline" type="button" onClick={() => setIsAddMemberOpen(false)}>
                   Cancel
                 </Button>
-                <Button disabled={!selectedUserId} onClick={handleAddMember}>
-                  Assign Member
+                <Button type="submit" isLoading={isSendingInvite} disabled={!inviteEmail.trim()}>
+                  Send Project Invite
                 </Button>
               </div>
-            </>
+            </form>
           )}
         </div>
       </Modal>

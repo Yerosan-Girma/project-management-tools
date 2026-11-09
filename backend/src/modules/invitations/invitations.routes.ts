@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { InvitationsController } from './invitations.controller';
 import { authenticate } from '../../middleware/authenticate';
-import { requireWorkspacePermission } from '../../middleware/authorize';
+import { requireWorkspacePermission, requireProjectPermission } from '../../middleware/authorize';
 import { validate } from '../../middleware/validate';
 import { asyncHandler } from '../../utils/async-handler';
-import { inviteMemberSchema, respondInvitationSchema } from './invitations.schema';
+import { inviteMemberSchema, inviteProjectMemberSchema, respondInvitationSchema } from './invitations.schema';
 
 const router = Router();
 const controller = new InvitationsController();
@@ -56,6 +56,36 @@ router.post(
   authenticate,
   requireWorkspacePermission('workspace:members:invite'),
   asyncHandler(controller.resend)
+);
+
+// Project-scoped invitation routes
+router.post(
+  '/projects/:projectId',
+  authenticate,
+  requireProjectPermission('project:members:manage'),
+  validate({ body: inviteProjectMemberSchema }),
+  asyncHandler(controller.inviteProjectMember)
+);
+
+router.get(
+  '/projects/:projectId',
+  authenticate,
+  requireProjectPermission('project:members:read'),
+  asyncHandler(controller.listProjectInvitations)
+);
+
+router.post(
+  '/projects/:projectId/:invitationId/resend',
+  authenticate,
+  requireProjectPermission('project:members:manage'),
+  asyncHandler(controller.resendProjectInvitation)
+);
+
+router.delete(
+  '/projects/:projectId/:invitationId',
+  authenticate,
+  requireProjectPermission('project:members:manage'),
+  asyncHandler(controller.cancelProjectInvitation)
 );
 
 export default router;

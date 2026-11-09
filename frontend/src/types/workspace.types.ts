@@ -1,4 +1,5 @@
 import { User } from './auth.types';
+import { ProjectRole } from './project.types';
 
 export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
 
@@ -31,8 +32,10 @@ export interface Workspace {
 export interface WorkspaceInvitation {
   id: string;
   workspaceId: string;
+  projectId?: string | null;
   email: string;
   role: WorkspaceRole;
+  projectRole?: ProjectRole | null;
   token: string;
   expiresAt: string;
   createdAt: string;
@@ -47,4 +50,9 @@ export interface WorkspaceInvitation {
     slug: string;
     description?: string | null;
   };
+  project?: {
+    id: string;
+    name: string;
+    key: string;
+  } | null;
 }

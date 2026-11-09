@@ -9,6 +9,7 @@ import {
   PriorityLevel,
 } from '../../../types/project.types';
 import { Activity } from '../../../types/activity.types';
+import { WorkspaceInvitation } from '../../../types/workspace.types';
 
 export interface CreateProjectInput {
   workspaceId: string;
@@ -100,5 +101,35 @@ export const projectService = {
 
   async removeProjectMember(projectId: string, userId: string): Promise<void> {
     await api.delete(`/projects/${projectId}/members/${userId}`);
+  },
+
+  async getProjectInvitations(projectId: string): Promise<WorkspaceInvitation[]> {
+    const response = await api.get<ApiResponse<WorkspaceInvitation[]>>(
+      `/invitations/projects/${projectId}`
+    );
+    return response.data.data;
+  },
+
+  async inviteProjectMember(
+    projectId: string,
+    email: string,
+    role: ProjectRole = 'MEMBER'
+  ): Promise<WorkspaceInvitation> {
+    const response = await api.post<ApiResponse<WorkspaceInvitation>>(
+      `/invitations/projects/${projectId}`,
+      { email, role }
+    );
+    return response.data.data;
+  },
+
+  async resendProjectInvitation(projectId: string, invitationId: string): Promise<WorkspaceInvitation> {
+    const response = await api.post<ApiResponse<WorkspaceInvitation>>(
+      `/invitations/projects/${projectId}/${invitationId}/resend`
+    );
+    return response.data.data;
+  },
+
+  async cancelProjectInvitation(projectId: string, invitationId: string): Promise<void> {
+    await api.delete(`/invitations/projects/${projectId}/${invitationId}`);
   },
 };
