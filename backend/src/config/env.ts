@@ -38,8 +38,16 @@ const envSchema = z.object({
   STORAGE_ACCESS_KEY: z.string().optional(),
   STORAGE_SECRET_KEY: z.string().optional(),
 
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional().transform((val) => {
+    if (!val) return undefined;
+    const match = val.match(/([0-9]+-[a-z0-9_]+\.apps\.googleusercontent\.com)/i);
+    return match ? match[1].trim() : val.trim().replace(/^["']|["']$/g, '');
+  }),
+  GOOGLE_CLIENT_SECRET: z.string().optional().transform((val) => {
+    if (!val) return undefined;
+    const match = val.match(/(GOCSPX-[a-zA-Z0-9_-]+)/);
+    return match ? match[1].trim() : val.trim().replace(/^["']|["']$/g, '');
+  }),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info')
 });

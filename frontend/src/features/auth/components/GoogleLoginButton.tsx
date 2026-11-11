@@ -20,9 +20,11 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
 
-  const clientId =
+  const rawClientId =
     import.meta.env.VITE_GOOGLE_CLIENT_ID ||
     '1080413359994-bubuvlr55ln40fd5nugqusv29gojnb7t.apps.googleusercontent.com';
+  const clientIdMatch = rawClientId.match(/([0-9]+-[a-z0-9_]+\.apps\.googleusercontent\.com)/i);
+  const clientId = clientIdMatch ? clientIdMatch[1].trim() : rawClientId.trim().replace(/^["']|["']$/g, '');
 
   useEffect(() => {
     // Check if Google Identity Services SDK is loaded

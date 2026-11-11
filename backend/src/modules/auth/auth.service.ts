@@ -295,8 +295,22 @@ export class AuthService {
       const data: any = await response.json();
 
       // Verify audience matches if GOOGLE_CLIENT_ID is configured
-      if (env.GOOGLE_CLIENT_ID && data.aud !== env.GOOGLE_CLIENT_ID) {
-        throw AppError.unauthenticated('Google token audience mismatch.');
+      const normalizeId = (val?: string) => {
+        if (!val) return '';
+        const match = val.match(/([0-9]+-[a-z0-9_]+\.apps\.googleusercontent\.com)/i);
+        return match ? match[1].toLowerCase() : val.trim().replace(/^["']|["']$/g, '').toLowerCase();
+      };
+
+      const configuredId = normalizeId(env.GOOGLE_CLIENT_ID);
+      const tokenAud = normalizeId(data.aud);
+      const tokenAzp = normalizeId(data.azp);
+
+      if (configuredId) {
+        const isMatch = tokenAud === configuredId || tokenAzp === configuredId;
+        if (!isMatch) {
+          logger.warn(`Google token audience mismatch. Configured="${configuredId}", token.aud="${data.aud}", token.azp="${data.azp}"`);
+          throw AppError.unauthenticated('Google token audience mismatch.');
+        }
       }
 
       if (!data.email) {
