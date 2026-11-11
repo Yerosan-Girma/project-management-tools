@@ -5,7 +5,7 @@ import { io as ClientSocket, Socket } from 'socket.io-client';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = process.env.APP_URL || 'http://localhost:8000';
 const API_URL = `${BASE_URL}/api/v1`;
 
 interface ApiResponse<T = any> {
@@ -1208,7 +1208,7 @@ async function runAllTests() {
     // 16.61 Postman Newman Runner verification
     console.log('\n    Running complete Postman/Newman Collection execution:');
     try {
-      execSync('npx newman run backend/docs/TeamFlow_API.postman_collection.json --reporters cli', {
+      execSync(`npx --yes newman run backend/docs/TeamFlow_API.postman_collection.json --env-var baseUrl=${API_URL} --reporters cli`, {
         stdio: 'inherit'
       });
       assert(true, 'Complete Newman Postman test collection executed with 100% success');

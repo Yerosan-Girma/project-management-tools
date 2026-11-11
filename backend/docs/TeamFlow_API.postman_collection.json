@@ -32,7 +32,7 @@
       "name": "1. Authentication",
       "item": [
         {
-          "name": "Login (Seed User: Alice)",
+          "name": "Login (Seed User: Yerosan)",
           "event": [
             {
               "listen": "test",
@@ -55,7 +55,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"alice@teamflow.local\",\n  \"password\": \"Password123!\"\n}"
+              "raw": "{\n  \"email\": \"yerosan@teamflow.local\",\n  \"password\": \"Password123!\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
           }

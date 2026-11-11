@@ -48,10 +48,10 @@ export const solutionTypes = [
   {
     id: 'software',
     label: 'Software',
-    title: 'Ship product in focused sprints',
+    title: 'Manage and deliver projects together',
     description:
-      'Break big projects into short 1- to 2-week sprints. Your team works together on clear goals, moves cards from start to finish on visual boards, and ships working features on time — with zero confusion.',
-    highlights: ['1–2 week focused sprints', 'Visual drag-and-drop boards', 'Real-time team updates'],
+      'A simple, visual workspace for your team. Plan tasks, move cards from start to finish on shared boards, and deliver quality projects on time — with zero confusion.',
+    highlights: ['Visual drag-and-drop boards', 'Real-time team updates', 'Clear roles & deadlines'],
   },
   {
     id: 'product',

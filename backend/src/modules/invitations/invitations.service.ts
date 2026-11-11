@@ -320,6 +320,10 @@ export class InvitationsService {
   async acceptInvitation(token: string, userId: string, userEmail: string) {
     const invitation = await this.getInvitationByToken(token);
 
+    if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
+      throw AppError.forbidden('This invitation was sent to a different email address.');
+    }
+
     // Accept invitation and grant membership to the authenticated user holding the valid token
     const membership = await this.invitationsRepo.acceptInvitation(
       invitation.id,
