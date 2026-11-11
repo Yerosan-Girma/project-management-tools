@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { queryClient } from '../app/query-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
 
 class SocketService {
   private socket: Socket | null = null;

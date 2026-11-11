@@ -11,3 +11,4 @@ backend/.env
 .kiro/
 .qodo/
 .devin/
+.vscode/
