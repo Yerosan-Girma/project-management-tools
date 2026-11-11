@@ -10,38 +10,38 @@ const icons = [Code2, Compass, Building2, Briefcase];
 const previewsBySolution: Record<string, { tag: string; badge: string; items: { title: string; subtitle: string; status: string }[] }> = {
   software: {
     tag: 'Engineering Sprints & Backlog',
-    badge: 'Code2 Production',
+    badge: 'Sprint 14 Active',
     items: [
-      { title: 'ENG-204: GraphQL schema federation', subtitle: 'Assigned to Gemachu • Branch: feat/federation', status: 'In Review' },
-      { title: 'ENG-198: PostgreSQL connection pool leak', subtitle: 'Assigned to Yerosan Girma • Priority: Urgent', status: 'In Progress' },
-      { title: 'ENG-185: Automated Jest test runner pipeline', subtitle: 'Automated CI/CD suite passed 100%', status: 'Shipped' },
+      { title: 'User authentication & login with Google', subtitle: 'Assigned to Gemachu • Ready for code review', status: 'In Review' },
+      { title: 'Real-time task card drag & drop board', subtitle: 'Assigned to Yerosan Girma • Active sprint task', status: 'In Progress' },
+      { title: 'Automated test suite & security checks', subtitle: 'Assigned to Yoni Tola • Passed all checks', status: 'Shipped' },
     ],
   },
   product: {
     tag: 'Product Roadmap & Milestones',
-    badge: 'PRD Delivery',
+    badge: 'Roadmap Delivery',
     items: [
-      { title: 'Q4 Core Deliverable: Mobile App 2.0', subtitle: 'Milestone target: Nov 28 • 85% completed', status: 'On Track' },
-      { title: 'User feedback session synthesis', subtitle: '14 customer interview transcripts attached', status: 'In Review' },
-      { title: 'Feature gate: Team billing self-serve', subtitle: 'Staged for Beta cohort release', status: 'Ready' },
+      { title: 'Mobile App 2.0 release for customers', subtitle: 'Target: Nov 28 • 85% completed', status: 'On Track' },
+      { title: 'Customer feedback interview summaries', subtitle: '14 user interviews reviewed', status: 'In Review' },
+      { title: 'Self-service team subscription billing', subtitle: 'Ready for initial user testing', status: 'Ready' },
     ],
   },
   operations: {
     tag: 'Cross-Team Operations & Deadlines',
-    badge: 'Ops Hub',
+    badge: 'Ops Schedule',
     items: [
-      { title: 'Quarterly compliance & security audit', subtitle: 'Assigned to Yerosan Girma • SOC2 prep', status: 'In Progress' },
-      { title: 'Global workspace access renewal', subtitle: 'All 4 department leads approved', status: 'Verified' },
-      { title: 'New developer onboarding playbook', subtitle: 'Live in team documentation wiki', status: 'Active' },
+      { title: 'Quarterly team security & access review', subtitle: 'Assigned to Yerosan Girma • On schedule', status: 'In Progress' },
+      { title: 'Annual workspace access renewal', subtitle: 'All team leads verified and active', status: 'Verified' },
+      { title: 'New teammate onboarding guide', subtitle: 'Shared in team documentation wiki', status: 'Active' },
     ],
   },
   agencies: {
     tag: 'Multi-Client Tenant Segregation',
-    badge: 'Client Isolation',
+    badge: 'Client Separation',
     items: [
-      { title: 'Client A: Brand design system & tokens', subtitle: 'Client invited as Viewer • Strict isolated board', status: 'Active Sprint' },
-      { title: 'Client B: Headless ecommerce storefront', subtitle: 'Milestone milestone 2 deliverables pending review', status: 'In Review' },
-      { title: 'Client C: Cloud migration & AWS infra', subtitle: 'Signed off and archived', status: 'Delivered' },
+      { title: 'Acme Corp: Brand redesign deliverables', subtitle: 'Client invited as Viewer • Private board', status: 'Active Sprint' },
+      { title: 'Globex Inc: Online store setup', subtitle: 'Milestone 2 deliverables pending review', status: 'In Review' },
+      { title: 'Stark Labs: Cloud migration setup', subtitle: 'Approved and delivered to client', status: 'Delivered' },
     ],
   },
 };

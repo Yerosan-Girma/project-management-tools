@@ -13,6 +13,8 @@ import {
   CheckSquare,
   Eye,
   Crown,
+  ChevronLeft,
+  ChevronRight,
   Play,
   Pause,
 } from 'lucide-react';
@@ -25,15 +27,20 @@ const roles = [
   {
     icon: Crown,
     name: 'Workspace Owner',
-    badge: 'Leader',
+    badge: 'Leader & Founder',
     color: 'bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300',
     description:
       'Creates the workspace. Has full control over team settings, projects, members, and organization details.',
-    capabilities: ['Manage all workspace settings', 'Invite admins and members', 'Delete or rename projects'],
+    capabilities: [
+      'Manage all workspace settings & billing',
+      'Invite admins, developers, and client viewers',
+      'Create, rename, or archive projects',
+      'Exclusive authority to transfer or delete the workspace',
+    ],
     preview: {
-      headline: 'Full Workspace Governance',
+      headline: 'Full Workspace Governance Console',
       roleBadge: '👑 Owner Active View',
-      summary: 'Overseeing team settings, member limits, and billing controls with full authority.',
+      summary: 'Overseeing team settings, member limits, and billing controls with full administrative authority.',
       items: [
         { label: 'Workspace Name', value: 'TeamFlow Core Engine', status: 'Active' },
         { label: 'Multi-Tenant Isolation', value: 'PostgreSQL Tenant UUID-71a', status: 'Secured' },
@@ -44,13 +51,18 @@ const roles = [
   {
     icon: Shield,
     name: 'Workspace Admin',
-    badge: 'Manager',
+    badge: 'Project Manager',
     color: 'bg-primary-50 text-primary-700 dark:bg-primary-950/70 dark:text-primary-300',
     description:
       'Helps run the team. Can create new projects, invite new people, and organize columns and deadlines.',
-    capabilities: ['Create and manage projects', 'Send email invitations', 'Assign tasks to anyone'],
+    capabilities: [
+      'Create and manage sprint projects',
+      'Send verified email invitations with secure tokens',
+      'Configure Kanban columns (To Do, In Progress, Review, Done)',
+      'Assign tasks and milestone due dates to anyone on the team',
+    ],
     preview: {
-      headline: 'Project Creation & Invites',
+      headline: 'Project Creation & Member Invites',
       roleBadge: '🛡️ Admin Active View',
       summary: 'Managing project repositories, inviting new teammates, and setting up sprint columns.',
       items: [
@@ -63,13 +75,18 @@ const roles = [
   {
     icon: Users,
     name: 'Team Member',
-    badge: 'Builder',
+    badge: 'Active Builder / Developer',
     color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300',
     description:
       'The core team doing daily work. Can create tasks, drag cards to Done, post comments, and finish deliverables.',
-    capabilities: ['Drag cards across columns', 'Add comments and labels', 'Complete assigned tasks'],
+    capabilities: [
+      'Drag task cards smoothly across Kanban columns',
+      'Add comments, labels, and deliverable attachments',
+      'Update task completion status in real time via WebSockets',
+      'Track all assigned tasks in the personal "My Tasks" queue',
+    ],
     preview: {
-      headline: 'Daily Task Execution',
+      headline: 'Daily Sprint Task Execution',
       roleBadge: '💻 Member Active View',
       summary: 'Active hands-on delivery. Moving cards forward, writing comments, and shipping sprint tasks.',
       items: [
@@ -82,13 +99,18 @@ const roles = [
   {
     icon: Eye,
     name: 'Viewer / Client',
-    badge: 'Guest',
+    badge: 'Guest & Stakeholder',
     color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
     description:
       'Perfect for clients and guests. They can see the board, check progress, and view deadlines without accidentally changing anything.',
-    capabilities: ['View boards in read-only mode', 'Check milestone deadlines', 'Zero risk of breaking tasks'],
+    capabilities: [
+      'View Kanban boards and active sprint cards in read-only mode',
+      'Check deadline calendars and delivery milestones',
+      'Inspect project deliverables with 100% transparency',
+      'Zero risk of breaking tasks, modifying columns, or deleting work',
+    ],
     preview: {
-      headline: 'Transparent Read-Only Review',
+      headline: 'Transparent Read-Only Stakeholder Review',
       roleBadge: '👁️ Viewer Safe View',
       summary: 'Safe stakeholder view. Can inspect deliverable deadlines and progress with zero edit risks.',
       items: [
@@ -111,6 +133,7 @@ const platformPages = [
       tag: 'Headquarters',
       headline: 'Sprint 14 Velocity: 54 story points',
       sub: '4 Active Projects • 0 Blockers • 98.4% on-time pace',
+      actionTitle: 'Go to Dashboard',
     },
   },
   {
@@ -123,6 +146,7 @@ const platformPages = [
       tag: 'Kanban Flow',
       headline: 'Live Board: Mobile Application (MOB)',
       sub: 'To Do (4) • In Progress (2) • Review (1) • Done (5)',
+      actionTitle: 'Explore Projects & Boards',
     },
   },
   {
@@ -135,6 +159,7 @@ const platformPages = [
       tag: 'Personal Queue',
       headline: '6 tasks assigned to you across 2 projects',
       sub: 'Next deliverable due tomorrow at 3:00 PM',
+      actionTitle: 'Open My Tasks',
     },
   },
   {
@@ -146,7 +171,8 @@ const platformPages = [
     mock: {
       tag: 'Milestone Timeline',
       headline: 'Cross-project deadline aggregation',
-      sub: 'Alpha Release target highlighted for Friday',
+      sub: 'Alpha Release target scheduled for Friday',
+      actionTitle: 'View Milestone Calendar',
     },
   },
   {
@@ -159,6 +185,7 @@ const platformPages = [
       tag: 'Member Directory',
       headline: '4 Active Members • 1 Pending Invite',
       sub: 'Instant SMTP token dispatch via verified email',
+      actionTitle: 'Manage Team & Access',
     },
   },
   {
@@ -171,38 +198,85 @@ const platformPages = [
       tag: 'Multi-Tenant Hub',
       headline: 'Engineering Squad • Client Alpha Workspace',
       sub: 'Strict data partitioning with zero cross-tenant leakage',
+      actionTitle: 'Open Workspaces Manager',
     },
   },
 ];
 
 export const AboutPage: React.FC = () => {
-  // AUTO-PLAY ANIMATION FOR ROLE CARDS
+  // AUTO-PLAY: DISPLAY ROLES ONE BY ONE (HIDES ALL OTHERS)
   const [activeRoleIndex, setActiveRoleIndex] = useState(0);
+  const [roleProgress, setRoleProgress] = useState(0);
   const [isRolePaused, setIsRolePaused] = useState(false);
 
   useEffect(() => {
     if (isRolePaused) return;
     const interval = setInterval(() => {
-      setActiveRoleIndex((prev) => (prev + 1) % roles.length);
-    }, 3600);
+      setRoleProgress((prev) => {
+        if (prev >= 100) {
+          setActiveRoleIndex((current) => (current + 1) % roles.length);
+          return 0;
+        }
+        return prev + 2.5; // 4000ms duration (4 seconds per card)
+      });
+    }, 100);
     return () => clearInterval(interval);
   }, [isRolePaused]);
 
-  // AUTO-PLAY ANIMATION FOR PAGES CARDS
+  const handleSelectRole = (idx: number) => {
+    setActiveRoleIndex(idx);
+    setRoleProgress(0);
+  };
+
+  const handlePrevRole = () => {
+    setActiveRoleIndex((prev) => (prev === 0 ? roles.length - 1 : prev - 1));
+    setRoleProgress(0);
+  };
+
+  const handleNextRole = () => {
+    setActiveRoleIndex((prev) => (prev + 1) % roles.length);
+    setRoleProgress(0);
+  };
+
+  // AUTO-PLAY: DISPLAY PAGES ONE BY ONE (HIDES ALL OTHERS)
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const [pageProgress, setPageProgress] = useState(0);
   const [isPagePaused, setIsPagePaused] = useState(false);
 
   useEffect(() => {
     if (isPagePaused) return;
     const interval = setInterval(() => {
-      setActivePageIndex((prev) => (prev + 1) % platformPages.length);
-    }, 3200);
+      setPageProgress((prev) => {
+        if (prev >= 100) {
+          setActivePageIndex((current) => (current + 1) % platformPages.length);
+          return 0;
+        }
+        return prev + 2.5; // 4000ms duration (4 seconds per card)
+      });
+    }, 100);
     return () => clearInterval(interval);
   }, [isPagePaused]);
 
-  const activeRole = roles[activeRoleIndex];
-  const ActiveRoleIcon = activeRole.icon;
-  const activePage = platformPages[activePageIndex];
+  const handleSelectPage = (idx: number) => {
+    setActivePageIndex(idx);
+    setPageProgress(0);
+  };
+
+  const handlePrevPage = () => {
+    setActivePageIndex((prev) => (prev === 0 ? platformPages.length - 1 : prev - 1));
+    setPageProgress(0);
+  };
+
+  const handleNextPage = () => {
+    setActivePageIndex((prev) => (prev + 1) % platformPages.length);
+    setPageProgress(0);
+  };
+
+  const currentRole = roles[activeRoleIndex];
+  const CurrentRoleIcon = currentRole.icon;
+
+  const currentPage = platformPages[activePageIndex];
+  const CurrentPageIcon = currentPage.icon;
 
   return (
     <>
@@ -238,270 +312,340 @@ export const AboutPage: React.FC = () => {
         </div>
       </section>
 
-      {/* SECTION 2: AUTO-ANIMATING ROLE CARDS */}
+      {/* SECTION 2: DISPLAY ROLES ONE BY ONE (OTHER ROLES HIDDEN) */}
       <section className="border-y border-slate-200/70 bg-slate-50/60 py-20 dark:border-slate-800 dark:bg-slate-900/40">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-10 max-w-3xl text-center">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1 text-xs font-semibold text-primary-700 dark:border-primary-800 dark:bg-primary-950/60 dark:text-primary-300">
               <span className="relative flex h-2 w-2">
                 <span className={cn('absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75', !isRolePaused && 'animate-ping')} />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary-600" />
               </span>
-              <span>{isRolePaused ? 'Animation Paused (Hovering)' : 'Self-Playing Role Showcase (Auto-Cycling)'}</span>
-            </div>
-
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
-              Safe collaboration with the right role for everyone
-            </h2>
-            <p className="mt-3 text-sm text-slate-600 sm:text-base dark:text-slate-400">
-              Watch the cards below cycle automatically to see what each team role can do. Hover with your mouse to pause.
-            </p>
-
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setIsRolePaused((p) => !p)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-2xs hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-              >
-                {isRolePaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
-                <span>{isRolePaused ? 'Resume auto-play' : 'Pause animation'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 4 Auto-animating Cards Grid */}
-          <div
-            className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
-            onMouseEnter={() => setIsRolePaused(true)}
-            onMouseLeave={() => setIsRolePaused(false)}
-          >
-            {roles.map((r, index) => {
-              const Icon = r.icon;
-              const isSelected = activeRoleIndex === index;
-              return (
-                <div
-                  key={r.name}
-                  onClick={() => setActiveRoleIndex(index)}
-                  className={cn(
-                    'group relative cursor-pointer flex flex-col justify-between rounded-3xl border bg-white p-6 transition-all duration-500 dark:bg-slate-900',
-                    isSelected
-                      ? 'border-primary-500 shadow-2xl ring-2 ring-primary-500/25 scale-[1.02] dark:border-primary-600'
-                      : 'border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-md dark:border-slate-800'
-                  )}
-                >
-                  {/* Active Card Progress Line Animation */}
-                  {isSelected && (
-                    <div className="absolute top-0 left-6 right-6 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                      <div className="h-full bg-primary-600 animate-[pulse_2s_ease-in-out_infinite]" />
-                    </div>
-                  )}
-
-                  <div>
-                    <div className="mb-4 flex items-center justify-between">
-                      <div
-                        className={cn(
-                          'flex h-11 w-11 items-center justify-center rounded-2xl transition-transform duration-300',
-                          r.color,
-                          isSelected && 'scale-110'
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {isSelected && (
-                          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                        )}
-                        <span
-                          className={cn(
-                            'rounded-full px-2.5 py-0.5 text-[10px] font-bold transition-colors',
-                            isSelected
-                              ? 'bg-primary-100 text-primary-800 dark:bg-primary-950 dark:text-primary-300'
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                          )}
-                        >
-                          {r.badge}
-                        </span>
-                      </div>
-                    </div>
-
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center justify-between">
-                      <span>{r.name}</span>
-                      {isSelected && (
-                        <span className="text-[10px] font-bold text-primary-600 dark:text-primary-400">
-                          Active
-                        </span>
-                      )}
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                      {r.description}
-                    </p>
-
-                    <div className="mt-5 space-y-2 border-t border-slate-100 pt-4 dark:border-slate-800">
-                      {r.capabilities.map((cap, i) => (
-                        <div key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
-                          <CheckCircle2
-                            className={cn(
-                              'mt-0.5 h-3.5 w-3.5 shrink-0 transition-colors',
-                              isSelected ? 'text-primary-600 dark:text-primary-400' : 'text-emerald-600 dark:text-emerald-400'
-                            )}
-                          />
-                          <span>{cap}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Dynamic Active Role Live Showcase Display */}
-          <div className="mt-10 overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xl sm:p-8 dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-col justify-between gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-center dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', activeRole.color)}>
-                  <ActiveRoleIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
-                      Live Role Simulation
-                    </span>
-                    <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold text-primary-700 dark:bg-primary-950 dark:text-primary-300">
-                      {activeRole.preview.roleBadge}
-                    </span>
-                  </div>
-                  <h3 className="mt-0.5 text-lg font-bold text-slate-900 dark:text-white">
-                    {activeRole.preview.headline}
-                  </h3>
-                </div>
-              </div>
-
-              <span className="text-xs text-slate-500 max-w-sm">
-                {activeRole.preview.summary}
+              <span>
+                {isRolePaused ? 'Animation Paused' : `Displaying 1 by 1 automatically (Card ${activeRoleIndex + 1} of ${roles.length})`}
               </span>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {activeRole.preview.items.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 transition-all hover:bg-slate-100/70 dark:border-slate-800/80 dark:bg-slate-950/60 dark:hover:bg-slate-800/60"
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
+              Team roles explained — one by one
+            </h2>
+            <p className="mt-3 text-sm text-slate-600 sm:text-base dark:text-slate-400">
+              Each role card is shown below individually. It automatically advances every 4 seconds, or you can use the arrows to switch.
+            </p>
+          </div>
+
+          {/* Navigation Bar for Roles */}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-primary-600 px-3 py-1 text-xs font-bold text-white shadow-xs">
+                Role {activeRoleIndex + 1} of {roles.length}
+              </span>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {currentRole.name}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Dots indicator */}
+              <div className="flex items-center gap-1.5">
+                {roles.map((r, idx) => (
+                  <button
+                    key={r.name}
+                    type="button"
+                    onClick={() => handleSelectRole(idx)}
+                    className={cn(
+                      'h-2.5 rounded-full transition-all duration-300',
+                      activeRoleIndex === idx
+                        ? 'w-7 bg-primary-600'
+                        : 'w-2.5 bg-slate-300 hover:bg-slate-400 dark:bg-slate-700'
+                    )}
+                    aria-label={`Show ${r.name}`}
+                    title={r.name}
+                  />
+                ))}
+              </div>
+
+              {/* Pause/Play toggle */}
+              <button
+                type="button"
+                onClick={() => setIsRolePaused((p) => !p)}
+                className="rounded-full border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                title={isRolePaused ? 'Resume auto-display' : 'Pause on current card'}
+                aria-label={isRolePaused ? 'Resume' : 'Pause'}
+              >
+                {isRolePaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+              </button>
+
+              {/* Previous / Next buttons */}
+              <div className="inline-flex rounded-full border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={handlePrevRole}
+                  className="rounded-l-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  aria-label="Previous role card"
                 >
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                    <span>{item.label}</span>
-                    <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                      {item.status}
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextRole}
+                  className="rounded-r-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  aria-label="Next role card"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* SINGLE ACTIVE ROLE CARD (ALL OTHER 3 CARDS HIDDEN) */}
+          <div
+            key={`role-card-${activeRoleIndex}`}
+            onMouseEnter={() => setIsRolePaused(true)}
+            onMouseLeave={() => setIsRolePaused(false)}
+            className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 shadow-2xl transition-all duration-500 sm:p-10 dark:border-slate-800 dark:bg-slate-900"
+          >
+            {/* Auto-advancing Top Progress Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full bg-primary-600 transition-all duration-100 ease-linear"
+                style={{ width: `${roleProgress}%` }}
+              />
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+              {/* Left Column: Role Overview & Permissions */}
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl shadow-xs', currentRole.color)}>
+                    <CurrentRoleIcon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-[11px] font-bold text-primary-700 dark:bg-primary-950 dark:text-primary-300">
+                      {currentRole.badge}
+                    </span>
+                    <h3 className="mt-1 text-2xl font-black text-slate-900 dark:text-white">
+                      {currentRole.name}
+                    </h3>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-300">
+                  {currentRole.description}
+                </p>
+
+                <div className="mt-6 space-y-2.5 border-t border-slate-100 pt-5 dark:border-slate-800">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                    What this role can do:
+                  </span>
+                  {currentRole.capabilities.map((cap, i) => (
+                    <div key={i} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300 sm:text-sm">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span>{cap}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Column: Live Simulated Role Screen */}
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-950/60">
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-3 dark:border-slate-800">
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
+                      Live Screen Simulation
+                    </span>
+                    <span className="block text-sm font-semibold text-slate-900 dark:text-white">
+                      {currentRole.preview.headline}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{item.value}</p>
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-700 shadow-2xs dark:bg-slate-900 dark:text-slate-300">
+                    {currentRole.preview.roleBadge}
+                  </span>
                 </div>
-              ))}
+
+                <div className="mt-4 space-y-2.5">
+                  {currentRole.preview.items.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between rounded-xl bg-white p-3 text-xs shadow-2xs dark:bg-slate-900"
+                    >
+                      <div>
+                        <span className="block text-slate-500 text-[11px]">{item.label}</span>
+                        <span className="block font-semibold text-slate-900 dark:text-white mt-0.5">{item.value}</span>
+                      </div>
+                      <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="mt-4 text-[11px] text-slate-500 italic">
+                  {currentRole.preview.summary}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SECTION 3: AUTO-ANIMATING PLATFORM PAGES GUIDE */}
+      {/* SECTION 3: DISPLAY PLATFORM PAGES ONE BY ONE (OTHER PAGES HIDDEN) */}
       <section className="py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-10 max-w-3xl text-center">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3.5 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
               <span className="relative flex h-2 w-2">
                 <span className={cn('absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75', !isPagePaused && 'animate-ping')} />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-600" />
               </span>
-              <span>{isPagePaused ? 'Animation Paused' : 'Pages Spotlight (Auto-Rotating)'}</span>
+              <span>
+                {isPagePaused ? 'Animation Paused' : `Displaying 1 by 1 automatically (Page ${activePageIndex + 1} of ${platformPages.length})`}
+              </span>
             </div>
 
             <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
-              What does each page do?
+              Platform pages guide — one by one
             </h2>
             <p className="mt-3 text-sm text-slate-600 sm:text-base dark:text-slate-400">
-              The cards below cycle automatically to guide you through every view of the application.
+              Learn what every page in TeamFlow does. Each card displays on its own and auto-advances.
             </p>
           </div>
 
-          <div
-            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
-            onMouseEnter={() => setIsPagePaused(true)}
-            onMouseLeave={() => setIsPagePaused(false)}
-          >
-            {platformPages.map((page, index) => {
-              const Icon = page.icon;
-              const isSelected = activePageIndex === index;
-              return (
-                <div
-                  key={page.title}
-                  onClick={() => setActivePageIndex(index)}
-                  className={cn(
-                    'group relative cursor-pointer rounded-3xl border bg-white p-6 transition-all duration-500 dark:bg-slate-900',
-                    isSelected
-                      ? 'border-indigo-500 shadow-xl ring-2 ring-indigo-500/25 scale-[1.02] dark:border-indigo-600'
-                      : 'border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-md dark:border-slate-800'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={cn(
-                        'flex h-11 w-11 items-center justify-center rounded-2xl transition-colors',
-                        isSelected
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'bg-primary-50 text-primary-600 dark:bg-primary-950/80 dark:text-primary-300'
-                      )}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
+          {/* Navigation Bar for Pages */}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-xs">
+                Page {activePageIndex + 1} of {platformPages.length}
+              </span>
+              <span className="font-mono text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                {currentPage.path}
+              </span>
+            </div>
 
-                    <span
-                      className={cn(
-                        'font-mono text-[11px] font-bold rounded-full px-2.5 py-0.5',
-                        isSelected
-                          ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
-                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                      )}
-                    >
-                      {page.path}
-                    </span>
-                  </div>
-
-                  <h3 className="mt-4 text-base font-bold text-slate-900 dark:text-white flex items-center justify-between">
-                    <span>{page.title}</span>
-                    {isSelected && (
-                      <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                        In Spotlight
-                      </span>
+            <div className="flex items-center gap-3">
+              {/* Dots indicator */}
+              <div className="flex items-center gap-1.5">
+                {platformPages.map((p, idx) => (
+                  <button
+                    key={p.title}
+                    type="button"
+                    onClick={() => handleSelectPage(idx)}
+                    className={cn(
+                      'h-2.5 rounded-full transition-all duration-300',
+                      activePageIndex === idx
+                        ? 'w-7 bg-indigo-600'
+                        : 'w-2.5 bg-slate-300 hover:bg-slate-400 dark:bg-slate-700'
                     )}
-                  </h3>
-
-                  <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400 sm:text-sm">
-                    {page.simpleExplain}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Active Page Live UI Spotlight Card */}
-          <div className="mt-8 rounded-3xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 via-white to-purple-50/40 p-6 sm:p-8 dark:border-indigo-950 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                  {activePage.mock.tag}
-                </span>
-                <h4 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">
-                  {activePage.mock.headline}
-                </h4>
-                <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                  {activePage.mock.sub}
-                </p>
+                    aria-label={`Show ${p.title}`}
+                    title={p.title}
+                  />
+                ))}
               </div>
 
-              <Link to={activePage.path}>
-                <Button size="sm" rightIcon={<ArrowRight className="h-4 w-4" />}>
-                  Open {activePage.title}
-                </Button>
-              </Link>
+              {/* Pause/Play toggle */}
+              <button
+                type="button"
+                onClick={() => setIsPagePaused((p) => !p)}
+                className="rounded-full border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                title={isPagePaused ? 'Resume auto-display' : 'Pause on current card'}
+                aria-label={isPagePaused ? 'Resume' : 'Pause'}
+              >
+                {isPagePaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+              </button>
+
+              {/* Previous / Next buttons */}
+              <div className="inline-flex rounded-full border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={handlePrevPage}
+                  className="rounded-l-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  aria-label="Previous page card"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextPage}
+                  className="rounded-r-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  aria-label="Next page card"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* SINGLE ACTIVE PAGE CARD (ALL OTHER 5 CARDS HIDDEN) */}
+          <div
+            key={`page-card-${activePageIndex}`}
+            onMouseEnter={() => setIsPagePaused(true)}
+            onMouseLeave={() => setIsPagePaused(false)}
+            className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 shadow-2xl transition-all duration-500 sm:p-10 dark:border-slate-800 dark:bg-slate-900"
+          >
+            {/* Auto-advancing Top Progress Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full bg-indigo-600 transition-all duration-100 ease-linear"
+                style={{ width: `${pageProgress}%` }}
+              />
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+              {/* Left Column: Page Detail */}
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-xs dark:bg-indigo-950/80 dark:text-indigo-300">
+                    <CurrentPageIcon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      {currentPage.path}
+                    </span>
+                    <h3 className="mt-0.5 text-2xl font-black text-slate-900 dark:text-white">
+                      {currentPage.title}
+                    </h3>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-300">
+                  {currentPage.simpleExplain}
+                </p>
+
+                <div className="mt-8 flex items-center gap-3">
+                  <Link to={currentPage.path}>
+                    <Button size="sm" rightIcon={<ArrowRight className="h-4 w-4" />}>
+                      {currentPage.mock.actionTitle}
+                    </Button>
+                  </Link>
+                  <span className="text-xs text-slate-400">
+                    Direct workspace link
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Column: Live Mock Widget Display */}
+              <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 p-6 shadow-xs dark:border-indigo-950 dark:bg-gradient-to-br dark:from-slate-950/70 dark:to-slate-900">
+                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                  {currentPage.mock.tag}
+                </span>
+
+                <h4 className="mt-4 text-xl font-bold text-slate-900 dark:text-white">
+                  {currentPage.mock.headline}
+                </h4>
+
+                <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400 sm:text-sm">
+                  {currentPage.mock.sub}
+                </p>
+
+                <div className="mt-6 flex items-center justify-between border-t border-indigo-200/50 pt-4 dark:border-slate-800">
+                  <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+                    Active Module
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Auto-switching in 4s
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

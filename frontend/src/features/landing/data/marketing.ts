@@ -50,32 +50,32 @@ export const solutionTypes = [
     label: 'Software',
     title: 'Ship product in focused sprints',
     description:
-      'Track engineering work on Kanban boards with issue keys, priorities, and live updates as code moves from backlog to done.',
-    highlights: ['Issue keys & labels', 'Review columns', 'Realtime board sync'],
+      'Break big projects into short 1- to 2-week sprints. Your team works together on clear goals, moves cards from start to finish on visual boards, and ships working features on time — with zero confusion.',
+    highlights: ['1–2 week focused sprints', 'Visual drag-and-drop boards', 'Real-time team updates'],
   },
   {
     id: 'product',
     label: 'Product',
     title: 'Keep roadmap and delivery aligned',
     description:
-      'Give PMs a workspace to plan projects, watch velocity, and keep stakeholders on the same board as builders.',
-    highlights: ['Project analytics', 'Due-date tracking', 'Workspace isolation'],
+      'Plan upcoming releases, set priorities, and see what the whole team is working on right now — keeping managers, developers, and stakeholders on the same page.',
+    highlights: ['Clear milestone goals', 'Due-date tracking', 'Team alignment'],
   },
   {
     id: 'operations',
     label: 'Operations',
     title: 'Coordinate people and deadlines',
     description:
-      'Use team directories, calendar deadlines, and notifications so ops work stays visible across the company.',
-    highlights: ['Team directory', 'Calendar view', 'Live notifications'],
+      'Organize team schedules, track upcoming deadlines on a shared calendar, and make sure daily deliverables never slip through the cracks.',
+    highlights: ['Shared team calendar', 'Clear responsibilities', 'Live task alerts'],
   },
   {
     id: 'agencies',
     label: 'Agencies',
     title: 'Separate every client workspace',
     description:
-      'Invite clients as viewers, keep client data in its own workspace, and run multiple projects without mixing boards.',
-    highlights: ['Multi-workspace', 'Role-based access', 'Email invitations'],
+      'Create private, isolated workspaces for each client. Invite clients as read-only viewers to review progress safely without mixing project data.',
+    highlights: ['Private client spaces', 'Safe read-only access', 'Zero data mix-ups'],
   },
 ] as const;
 
