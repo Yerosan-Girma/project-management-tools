@@ -15,6 +15,8 @@ export function getEmailTransporter(): Transporter<any> {
   const smtpHost = env.SMTP_HOST?.trim() || 'smtp.gmail.com';
   const isGmail = smtpHost.toLowerCase().includes('gmail') || (smtpUser && smtpUser.toLowerCase().includes('@gmail.com'));
 
+  logger.info(`🔍 Email Config Check - SMTP_USER: ${smtpUser ? 'SET' : 'NOT SET'}, SMTP_PASS: ${smtpPass ? 'SET' : 'NOT SET'}, SMTP_HOST: ${smtpHost}, MAILTRAP_TOKEN: ${env.MAILTRAP_TOKEN ? 'SET' : 'NOT SET'}`);
+
   if (smtpUser && smtpPass) {
     if (isGmail) {
       transporter = nodemailer.createTransport({
@@ -56,7 +58,7 @@ export function getEmailTransporter(): Transporter<any> {
       newline: 'windows',
       buffer: true,
     });
-    logger.info('📧 Email credentials not provided. Emails will be logged to console in dev mode.');
+    logger.warn('⚠️ Email credentials not provided. Emails will be logged to console (SIMULATED MODE). Configure SMTP_USER, SMTP_PASS, SMTP_HOST or MAILTRAP_TOKEN to send real emails.');
   }
 
   return transporter;
