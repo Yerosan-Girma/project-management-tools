@@ -26,6 +26,7 @@ import notificationsRoutes from './modules/notifications/notifications.routes';
 import activitiesRoutes from './modules/activities/activities.routes';
 import analyticsRoutes from './modules/analytics/analytics.routes';
 import contactRoutes from './modules/contact/contact.routes';
+import systemRoutes from './modules/system/system.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -93,6 +94,7 @@ export function createApp(): Application {
   app.use('/api/v1/activities', activitiesRoutes);
   app.use('/api/v1/analytics', analyticsRoutes);
   app.use('/api/v1/contact', contactRoutes);
+  app.use('/api/v1/system', systemRoutes);
 
   // 9. 404 Handler
   app.use(notFoundHandler);
