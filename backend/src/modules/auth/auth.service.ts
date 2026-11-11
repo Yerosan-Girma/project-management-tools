@@ -497,7 +497,7 @@ export class AuthService {
   // Refresh tokens with rotation and reuse detection
   async refreshTokens(rawRefreshToken: string, ip?: string, userAgent?: string) {
     if (!rawRefreshToken) {
-      throw AppError.unauthenticated('Refresh token missing.');
+      throw AppError.unauthenticated('Session expired. Please log in again.');
     }
 
     const tokenHash = this.hashToken(rawRefreshToken);

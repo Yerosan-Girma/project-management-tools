@@ -45,13 +45,8 @@ apiClient.interceptors.response.use(
   async (error: AxiosError<any>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // Don't retry auth endpoints like login, register, refresh, logout
-    if (
-      !originalRequest ||
-      originalRequest.url?.includes('/auth/login') ||
-      originalRequest.url?.includes('/auth/register') ||
-      originalRequest.url?.includes('/auth/refresh')
-    ) {
+    // Don't retry auth endpoints (login, register, refresh, google, logout, etc.)
+    if (!originalRequest || originalRequest.url?.includes('/auth/')) {
       return Promise.reject(error);
     }
 
@@ -64,14 +59,24 @@ apiClient.interceptors.response.use(
           .catch((err) => Promise.reject(err));
       }
 
+      const savedRefreshToken = localStorage.getItem('teamflow_refresh_token');
+
+      // If there is no refresh token saved, we cannot refresh the session
+      if (!savedRefreshToken) {
+        localStorage.removeItem('teamflow_access_token');
+        localStorage.removeItem('teamflow_refresh_token');
+        localStorage.removeItem('teamflow_user');
+        window.dispatchEvent(new Event('auth:unauthorized'));
+        return Promise.reject(error);
+      }
+
       originalRequest._retry = true;
       isRefreshing = true;
 
       try {
-        const savedRefreshToken = localStorage.getItem('teamflow_refresh_token');
         const refreshRes = await axios.post(
           `${BASE_URL}/auth/refresh`,
-          { refreshToken: savedRefreshToken || undefined },
+          { refreshToken: savedRefreshToken },
           { withCredentials: true }
         );
 
@@ -97,7 +102,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('teamflow_refresh_token');
         localStorage.removeItem('teamflow_user');
         window.dispatchEvent(new Event('auth:unauthorized'));
-        return Promise.reject(refreshErr);
+        return Promise.reject(error);
       } finally {
         isRefreshing = false;
       }
