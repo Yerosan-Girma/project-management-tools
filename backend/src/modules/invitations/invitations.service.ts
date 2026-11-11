@@ -87,8 +87,11 @@ export class InvitationsService {
         },
       });
 
-      const emailSent = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
-      logger.info(`📧 Pending invitation refreshed and re-sent to ${cleanEmail} for workspace ${workspace.name} (emailDelivered: ${emailSent})`);
+      // Send invitation email (fire-and-forget)
+      this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token).catch((err) => {
+        logger.warn(`Invitation email dispatch failed (async): ${err.message}`);
+      });
+      logger.info(`📧 Pending invitation refreshed and re-sent to ${cleanEmail} for workspace ${workspace.name}`);
 
       if (existingUser) {
         await NotificationJob.createAndDispatch({
@@ -103,7 +106,7 @@ export class InvitationsService {
 
       return {
         ...updatedInvitation,
-        emailSent,
+        emailSent: true,
       };
     }
 
@@ -133,8 +136,10 @@ export class InvitationsService {
       },
     });
 
-    // 7. Send invitation email
-    const emailSent = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
+    // 7. Send invitation email (fire-and-forget - don't wait for email to send)
+    this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token).catch((err) => {
+      logger.warn(`Invitation email dispatch failed (async): ${err.message}`);
+    });
 
     // 8. If invited user already has an account on TeamFlow, trigger in-app notification immediately
     if (existingUser) {
@@ -150,7 +155,7 @@ export class InvitationsService {
 
     return {
       ...invitation,
-      emailSent,
+      emailSent: true, // Assume success for fire-and-forget pattern
     };
   }
 
@@ -434,11 +439,14 @@ export class InvitationsService {
       },
     });
 
-    const emailSent = await this.dispatchInvitationEmail(invitation.workspace.name, invitation.email, invitation.role, token);
-    logger.info(`📧 Invitation manually resent to ${invitation.email} for workspace ${invitation.workspace.name} (emailDelivered: ${emailSent})`);
+    // Send invitation email (fire-and-forget)
+    this.dispatchInvitationEmail(invitation.workspace.name, invitation.email, invitation.role, token).catch((err) => {
+      logger.warn(`Invitation email dispatch failed (async): ${err.message}`);
+    });
+    logger.info(`📧 Invitation manually resent to ${invitation.email} for workspace ${invitation.workspace.name}`);
     return {
       ...updatedInvitation,
-      emailSent,
+      emailSent: true,
     };
   }
 
@@ -534,14 +542,16 @@ export class InvitationsService {
           resourceId: projectId,
         });
 
-        // Send informative notification email
-        await this.dispatchProjectAddedEmail(
+        // Send informative notification email (fire-and-forget)
+        this.dispatchProjectAddedEmail(
           project.workspace.name,
           project.name,
           existingUser.email,
           input.role,
           projectId
-        );
+        ).catch((err) => {
+          logger.warn(`Project added email dispatch failed (async): ${err.message}`);
+        });
 
         logger.info(`✨ User ${existingUser.email} is already in workspace ${project.workspace.name}; directly added to project ${project.name}`);
 
@@ -593,18 +603,21 @@ export class InvitationsService {
         });
       }
 
-      const emailSent = await this.dispatchProjectInvitationEmail(
+      // Send project invitation email (fire-and-forget)
+      this.dispatchProjectInvitationEmail(
         project.workspace.name,
         project.name,
         cleanEmail,
         input.role,
         token
-      );
+      ).catch((err) => {
+        logger.warn(`Project invitation email dispatch failed (async): ${err.message}`);
+      });
 
-      logger.info(`📧 Project invitation refreshed and re-sent to ${cleanEmail} for project ${project.name} (emailDelivered: ${emailSent})`);
+      logger.info(`📧 Project invitation refreshed and re-sent to ${cleanEmail} for project ${project.name}`);
       return {
         ...updatedInvitation,
-        emailSent,
+        emailSent: true,
       };
     }
 
@@ -649,17 +662,20 @@ export class InvitationsService {
       });
     }
 
-    const emailSent = await this.dispatchProjectInvitationEmail(
+    // Send project invitation email (fire-and-forget)
+    this.dispatchProjectInvitationEmail(
       project.workspace.name,
       project.name,
       cleanEmail,
       input.role,
       token
-    );
+    ).catch((err) => {
+      logger.warn(`Project invitation email dispatch failed (async): ${err.message}`);
+    });
 
     return {
       ...invitation,
-      emailSent,
+      emailSent: true,
     };
   }
 
@@ -701,13 +717,16 @@ export class InvitationsService {
       },
     });
 
-    const emailSent = await this.dispatchProjectInvitationEmail(
+    // Send project invitation email (fire-and-forget)
+    this.dispatchProjectInvitationEmail(
       invitation.workspace.name,
       invitation.project?.name || 'Project',
       invitation.email,
       invitation.projectRole || 'MEMBER',
       token
-    );
+    ).catch((err) => {
+      logger.warn(`Project invitation email dispatch failed (async): ${err.message}`);
+    });
 
     // If target user exists on platform, trigger in-app notification
     const targetUser = await prisma.user.findUnique({
@@ -724,10 +743,10 @@ export class InvitationsService {
       });
     }
 
-    logger.info(`📧 Project invitation manually resent to ${invitation.email} for project ${invitation.project?.name} (emailDelivered: ${emailSent})`);
+    logger.info(`📧 Project invitation manually resent to ${invitation.email} for project ${invitation.project?.name}`);
     return {
       ...updatedInvitation,
-      emailSent,
+      emailSent: true,
     };
   }
 

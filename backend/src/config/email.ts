@@ -119,7 +119,13 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
       mailOptions.category = category;
     }
 
-    const info = await transport.sendMail(mailOptions as any);
+    // Add timeout to prevent hanging on slow email servers
+    const info = await Promise.race([
+      transport.sendMail(mailOptions as any),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Email send timeout after 10 seconds')), 10000)
+      ),
+    ]) as any;
 
     if (info && (info as any).message) {
       // In stream transport mode, output simulated email
