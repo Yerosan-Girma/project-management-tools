@@ -11,6 +11,7 @@ import { registerSchema, RegisterFormData } from '../schemas/auth.schema';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../../../stores/auth-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 import { getErrorMessage } from '../../../utils/error';
 
 export const RegisterPage: React.FC = () => {
@@ -169,6 +170,21 @@ export const RegisterPage: React.FC = () => {
         >
           Create Account
         </Button>
+
+        {/* Divider */}
+        <div className="relative my-3">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+          </div>
+          <div className="relative flex justify-center text-[11px] uppercase">
+            <span className="bg-white px-2 text-slate-400 dark:bg-slate-900 dark:text-slate-500">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* Google Sign-In Button */}
+        <GoogleLoginButton inviteToken={inviteToken} label="Sign up with Google" />
 
         <div className="pt-2 text-center text-xs text-slate-500 dark:text-slate-400">
           Already have an account?{' '}

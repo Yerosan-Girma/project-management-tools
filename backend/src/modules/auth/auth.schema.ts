@@ -39,9 +39,17 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().optional()
 });
 
+export const googleAuthSchema = z.object({
+  idToken: z.string().optional(),
+  code: z.string().optional(),
+  redirectUri: z.string().optional(),
+  inviteToken: z.string().optional()
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+export type GoogleAuthInput = z.infer<typeof googleAuthSchema>;

@@ -14,7 +14,8 @@ import {
   RegisterInput,
   LoginInput,
   ForgotPasswordInput,
-  ResetPasswordInput
+  ResetPasswordInput,
+  GoogleAuthInput
 } from './auth.schema';
 
 export class AuthService {
@@ -272,6 +273,224 @@ export class AuthService {
         refreshToken: rawRefreshToken,
         expiresIn: env.ACCESS_TOKEN_EXPIRES_IN
       }
+    };
+  }
+
+  // Google OAuth Login & Registration
+  async loginWithGoogle(input: GoogleAuthInput, ip?: string, userAgent?: string) {
+    let googleUser: {
+      email: string;
+      name: string;
+      picture?: string;
+      emailVerified?: boolean;
+    };
+
+    if (input.idToken) {
+      // 1. Verify Google ID token via Google's tokeninfo API
+      const tokenInfoUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(input.idToken)}`;
+      const response = await fetch(tokenInfoUrl);
+      if (!response.ok) {
+        throw AppError.unauthenticated('Invalid or expired Google token.');
+      }
+      const data: any = await response.json();
+
+      // Verify audience matches if GOOGLE_CLIENT_ID is configured
+      if (env.GOOGLE_CLIENT_ID && data.aud !== env.GOOGLE_CLIENT_ID) {
+        throw AppError.unauthenticated('Google token audience mismatch.');
+      }
+
+      if (!data.email) {
+        throw AppError.badRequest('No email address provided by Google account.');
+      }
+
+      googleUser = {
+        email: data.email.toLowerCase(),
+        name: data.name || data.email.split('@')[0],
+        picture: data.picture,
+        emailVerified: data.email_verified === 'true' || data.email_verified === true
+      };
+    } else if (input.code) {
+      // 2. Exchange authorization code for tokens
+      if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+        throw AppError.badRequest('Google OAuth credentials not configured on server.');
+      }
+
+      const redirectUri = input.redirectUri || `${env.FRONTEND_URL}/auth/google/callback`;
+
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code: input.code,
+          client_id: env.GOOGLE_CLIENT_ID,
+          client_secret: env.GOOGLE_CLIENT_SECRET,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code'
+        })
+      });
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text().catch(() => '');
+        logger.error(`Failed to exchange Google OAuth code: ${errText}`);
+        throw AppError.unauthenticated('Failed to exchange authorization code with Google.');
+      }
+
+      const tokenData: any = await tokenRes.json();
+      const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      });
+
+      if (!profileRes.ok) {
+        throw AppError.unauthenticated('Failed to fetch user profile from Google.');
+      }
+
+      const profileData: any = await profileRes.json();
+      googleUser = {
+        email: profileData.email.toLowerCase(),
+        name: profileData.name || profileData.email.split('@')[0],
+        picture: profileData.picture,
+        emailVerified: profileData.email_verified === true
+      };
+    } else {
+      throw AppError.badRequest('Either idToken or authorization code is required.');
+    }
+
+    // Look up user in database
+    let user = await this.authRepo.findAnyUserByEmail(googleUser.email);
+
+    if (user) {
+      if (user.status === UserStatus.SUSPENDED) {
+        throw new AppError('Your account has been suspended. Please contact support.', 403, ErrorCode.FORBIDDEN);
+      }
+      if (user.status === UserStatus.INACTIVE) {
+        throw new AppError('Your account is currently inactive. Please contact support.', 403, ErrorCode.FORBIDDEN);
+      }
+
+      // Re-activate soft-deleted account if any
+      const updateData: any = {};
+      if (user.deletedAt) {
+        updateData.deletedAt = null;
+        updateData.status = UserStatus.ACTIVE;
+      }
+      if (!user.avatarUrl && googleUser.picture) {
+        updateData.avatarUrl = googleUser.picture;
+      }
+      if (!user.emailVerifiedAt && googleUser.emailVerified) {
+        updateData.emailVerifiedAt = new Date();
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        user = await this.authRepo.updateUser(user.id, updateData);
+      }
+    } else {
+      // Create new user with random Argon2id password hash
+      const randomSecret = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await this.hashPassword(randomSecret);
+
+      user = await this.authRepo.createUser({
+        name: googleUser.name,
+        email: googleUser.email,
+        passwordHash,
+        avatarUrl: googleUser.picture
+      });
+
+      if (googleUser.emailVerified) {
+        user = await this.authRepo.updateUser(user.id, { emailVerifiedAt: new Date() });
+      }
+
+      // Create a default workspace for the newly registered user
+      const slugBase = googleUser.name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20) || 'workspace';
+      const workspaceSlug = `${slugBase}-${crypto.randomBytes(3).toString('hex')}`;
+
+      await prisma.workspace.create({
+        data: {
+          name: `${googleUser.name}'s Workspace`,
+          slug: workspaceSlug,
+          ownerId: user.id,
+          members: {
+            create: {
+              userId: user.id,
+              role: 'OWNER'
+            }
+          }
+        }
+      });
+    }
+
+    // Check for pending invitation to auto-join
+    let joinedWorkspace: any = null;
+    let assignedRole: string | null = null;
+    let targetInvitation: any = null;
+
+    if (input.inviteToken) {
+      targetInvitation = await prisma.workspaceInvitation.findUnique({
+        where: { token: input.inviteToken },
+        include: { workspace: { select: { id: true, name: true, slug: true } } }
+      });
+    }
+
+    if (!targetInvitation) {
+      targetInvitation = await prisma.workspaceInvitation.findFirst({
+        where: {
+          email: user.email.toLowerCase(),
+          status: InvitationStatus.PENDING,
+          expiresAt: { gt: new Date() }
+        },
+        include: { workspace: { select: { id: true, name: true, slug: true } } }
+      });
+    }
+
+    if (
+      targetInvitation &&
+      targetInvitation.status === InvitationStatus.PENDING &&
+      new Date() <= targetInvitation.expiresAt &&
+      (Boolean(input.inviteToken) || targetInvitation.email.toLowerCase() === user.email.toLowerCase())
+    ) {
+      await this.invitationsRepo.acceptInvitation(
+        targetInvitation.id,
+        targetInvitation.workspaceId,
+        user.id,
+        targetInvitation.role
+      );
+      joinedWorkspace = targetInvitation.workspace;
+      assignedRole = targetInvitation.projectRole || targetInvitation.role;
+    }
+
+    // Issue tokens
+    const rawRefreshToken = this.generateRawRefreshToken();
+    const tokenHash = this.hashToken(rawRefreshToken);
+    const family = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const session = await this.authRepo.createRefreshToken({
+      tokenHash,
+      userId: user.id,
+      family,
+      expiresAt,
+      ipAddress: ip,
+      userAgent
+    });
+
+    const accessToken = this.generateAccessToken(user, session.id);
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        platformRole: user.platformRole,
+        status: user.status,
+        emailVerifiedAt: user.emailVerifiedAt,
+        createdAt: user.createdAt
+      },
+      tokens: {
+        accessToken,
+        refreshToken: rawRefreshToken,
+        expiresIn: env.ACCESS_TOKEN_EXPIRES_IN
+      },
+      joinedWorkspace,
+      assignedRole
     };
   }
 

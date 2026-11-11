@@ -97,4 +97,69 @@ export class AuthController {
     await this.authService.revokeSession(req.user!.id, req.params.id);
     ApiResponse.success(res, 'Session revoked successfully.');
   };
+
+  googleAuth = async (req: Request, res: Response): Promise<void> => {
+    const ip = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    const result = await this.authService.loginWithGoogle(req.body, ip, userAgent);
+    this.setRefreshTokenCookie(res, result.tokens.refreshToken);
+
+    ApiResponse.success(res, 'Google authentication successful.', result);
+  };
+
+  googleRedirect = async (req: Request, res: Response): Promise<void> => {
+    if (!env.GOOGLE_CLIENT_ID) {
+      ApiResponse.error(res, 'Google OAuth is not configured on this server.', 500);
+      return;
+    }
+
+    const redirectUri = (req.query.redirect_uri as string) || `${env.APP_URL}/api/v1/auth/google/callback`;
+    const state = (req.query.state as string) || '';
+
+    const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    googleAuthUrl.searchParams.set('client_id', env.GOOGLE_CLIENT_ID);
+    googleAuthUrl.searchParams.set('redirect_uri', redirectUri);
+    googleAuthUrl.searchParams.set('response_type', 'code');
+    googleAuthUrl.searchParams.set('scope', 'openid email profile');
+    googleAuthUrl.searchParams.set('access_type', 'offline');
+    googleAuthUrl.searchParams.set('prompt', 'consent');
+    if (state) {
+      googleAuthUrl.searchParams.set('state', state);
+    }
+
+    res.redirect(googleAuthUrl.toString());
+  };
+
+  googleCallback = async (req: Request, res: Response): Promise<void> => {
+    const code = req.query.code as string;
+    const error = req.query.error as string;
+
+    if (error || !code) {
+      res.redirect(`${env.FRONTEND_URL}/login?error=${encodeURIComponent(error || 'Google login cancelled.')}`);
+      return;
+    }
+
+    try {
+      const ip = req.ip || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+      const redirectUri = `${env.APP_URL}/api/v1/auth/google/callback`;
+
+      const result = await this.authService.loginWithGoogle(
+        { code, redirectUri },
+        ip,
+        userAgent
+      );
+
+      this.setRefreshTokenCookie(res, result.tokens.refreshToken);
+
+      res.redirect(
+        `${env.FRONTEND_URL}/auth/google/callback?accessToken=${encodeURIComponent(result.tokens.accessToken)}&refreshToken=${encodeURIComponent(result.tokens.refreshToken)}`
+      );
+    } catch (err: any) {
+      res.redirect(
+        `${env.FRONTEND_URL}/login?error=${encodeURIComponent(err.message || 'Google authentication failed.')}`
+      );
+    }
+  };
 }

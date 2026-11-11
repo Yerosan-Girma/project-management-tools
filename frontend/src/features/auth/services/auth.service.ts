@@ -20,6 +20,11 @@ export const authService = {
     return response.data.data;
   },
 
+  async loginWithGoogle(data: { idToken?: string; code?: string; redirectUri?: string; inviteToken?: string }): Promise<AuthResponse> {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/google', data);
+    return response.data.data;
+  },
+
   async logout(): Promise<void> {
     const refreshToken = localStorage.getItem('teamflow_refresh_token');
     try {

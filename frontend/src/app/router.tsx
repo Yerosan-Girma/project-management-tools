@@ -12,6 +12,7 @@ import RegisterPage from '../features/auth/pages/RegisterPage';
 import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '../features/auth/pages/ResetPasswordPage';
 import VerifyEmailPage from '../features/auth/pages/VerifyEmailPage';
+import GoogleCallbackPage from '../features/auth/pages/GoogleCallbackPage';
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import CalendarPage from '../features/calendar/pages/CalendarPage';
 import WorkspacesPage from '../features/workspaces/pages/WorkspacesPage';
@@ -58,6 +59,10 @@ export const router = createBrowserRouter([
   {
     path: '/verify-email',
     element: <VerifyEmailPage />,
+  },
+  {
+    path: '/auth/google/callback',
+    element: <GoogleCallbackPage />,
   },
   // Guest-only auth routes
   {

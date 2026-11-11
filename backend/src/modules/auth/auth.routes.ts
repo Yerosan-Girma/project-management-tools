@@ -10,7 +10,8 @@ import {
   verifyEmailSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
-  refreshTokenSchema
+  refreshTokenSchema,
+  googleAuthSchema
 } from './auth.schema';
 
 const router = Router();
@@ -24,6 +25,9 @@ router.post('/logout', asyncHandler(controller.logout));
 router.post('/verify-email', validate({ body: verifyEmailSchema }), asyncHandler(controller.verifyEmail));
 router.post('/forgot-password', authLimiter, validate({ body: forgotPasswordSchema }), asyncHandler(controller.forgotPassword));
 router.post('/reset-password', authLimiter, validate({ body: resetPasswordSchema }), asyncHandler(controller.resetPassword));
+router.post('/google', authLimiter, validate({ body: googleAuthSchema }), asyncHandler(controller.googleAuth));
+router.get('/google', asyncHandler(controller.googleRedirect));
+router.get('/google/callback', asyncHandler(controller.googleCallback));
 
 // Protected routes
 router.get('/me', authenticate, asyncHandler(controller.me));
