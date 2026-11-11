@@ -15,15 +15,16 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => {
-  const savedTheme = (localStorage.getItem('teamflow_theme') as Theme) || 'light';
-  if (savedTheme === 'dark') {
+  const savedTheme = localStorage.getItem('teamflow_theme') as Theme | null;
+  const initialTheme: Theme = savedTheme === 'light' ? 'light' : 'dark';
+  if (initialTheme === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
   }
 
   return {
-    theme: savedTheme,
+    theme: initialTheme,
     sidebarOpen: true,
     activeTaskId: null,
 
