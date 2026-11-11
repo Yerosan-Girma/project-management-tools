@@ -10,28 +10,38 @@ export function getEmailTransporter(): Transporter<any> {
   if (transporter) return transporter;
 
   // 1. Prioritize SMTP (e.g. Gmail, Mailtrap Sandbox, or custom SMTP) when user/pass are provided
-  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
-    const isGmail = env.SMTP_HOST.toLowerCase().includes('gmail');
-    const port = env.SMTP_PORT || 587;
-    const secure = port === 465;
+  const smtpUser = env.SMTP_USER?.trim();
+  const smtpPass = env.SMTP_PASS?.trim().replace(/\s+/g, '');
+  const smtpHost = env.SMTP_HOST?.trim() || 'smtp.gmail.com';
+  const isGmail = smtpHost.toLowerCase().includes('gmail') || (smtpUser && smtpUser.toLowerCase().includes('@gmail.com'));
 
-    const config: any = {
-      host: isGmail ? 'smtp.gmail.com' : env.SMTP_HOST,
-      port,
-      secure,
-      pool: true,
-      maxConnections: 3,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    };
-
-    transporter = nodemailer.createTransport(config);
-    logger.info(`📧 SMTP Email Transporter configured for ${env.SMTP_USER} via ${isGmail ? 'smtp.gmail.com' : env.SMTP_HOST}:${port} (secure: ${secure}, pooled: true)`);
+  if (smtpUser && smtpPass) {
+    if (isGmail) {
+      transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+      logger.info(`📧 Gmail Email Transporter configured successfully for ${smtpUser}`);
+    } else {
+      const port = env.SMTP_PORT || 587;
+      const secure = port === 465;
+      transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port,
+        secure,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+      logger.info(`📧 Custom SMTP Email Transporter configured for ${smtpUser} via ${smtpHost}:${port} (secure: ${secure})`);
+    }
   } else if (env.MAILTRAP_TOKEN) {
     transporter = nodemailer.createTransport(
       MailtrapTransport({

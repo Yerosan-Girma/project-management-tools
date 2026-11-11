@@ -13,8 +13,8 @@ if (!process.env.NODE_ENV) {
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.string().transform((val) => parseInt(val, 10)).default('5000'),
-  APP_URL: z.string().default('http://localhost:8000'),
-  FRONTEND_URL: z.string().default('http://localhost:3000'),
+  APP_URL: z.string().default('https://project-management-tools-tee6.onrender.com').transform((val) => val.replace(/\/+$/, '')),
+  FRONTEND_URL: z.string().default('https://project-management-tool-peach-xi.vercel.app').transform((val) => val.replace(/\/+$/, '')),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   DIRECT_URL: z.string().optional(),
@@ -26,12 +26,12 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().optional(),
 
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().transform((val) => (val ? parseInt(val, 10) : 587)).optional(),
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.string().transform((val) => (val ? parseInt(val, 10) : 587)).default('587'),
   SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  SMTP_PASS: z.string().optional().transform((val) => (val ? val.trim().replace(/\s+/g, '') : undefined)),
   MAILTRAP_TOKEN: z.string().optional(),
-  EMAIL_FROM: z.string().default('TeamFlow <noreply@teamflow.local>'),
+  EMAIL_FROM: z.string().default('TeamFlow <yerosang463@gmail.com>'),
 
   STORAGE_ENDPOINT: z.string().optional(),
   STORAGE_BUCKET: z.string().default('teamflow-attachments'),
