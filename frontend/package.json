@@ -28,7 +28,6 @@
     "socket.io-client": "^4.8.1",
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.1",
-    "teamflow-platform": "file:..",
     "zod": "^3.24.2",
     "zustand": "^5.0.3"
   },
