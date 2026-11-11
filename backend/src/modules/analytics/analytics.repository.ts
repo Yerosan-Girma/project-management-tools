@@ -99,10 +99,12 @@ export class AnalyticsRepository {
       deletedAt: null,
       isArchived: false
     };
-    if (workspaceId) {
+    if (workspaceId && isWorkspaceAdminOrOwner) {
       teamTasksWhere.project = { workspaceId, deletedAt: null, isArchived: false };
     } else if (projectIds.length > 0) {
       teamTasksWhere.projectId = { in: projectIds };
+    } else {
+      teamTasksWhere.projectId = '__none__';
     }
 
     const [teamTasks, teamMemberCount] = await Promise.all([

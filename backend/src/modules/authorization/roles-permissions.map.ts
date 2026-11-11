@@ -61,6 +61,8 @@ export const WORKSPACE_ROLE_PERMISSIONS: Record<WorkspaceRole, readonly Workspac
   ],
   [WorkspaceRole.GUEST]: [
     'workspace:read',
+    'workspace:members:read',
+    'workspace:projects:read',
   ],
 } as const;
 

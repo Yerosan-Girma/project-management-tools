@@ -20,7 +20,7 @@ export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const inviteToken = searchParams.get('inviteToken') || undefined;
+  const inviteToken = searchParams.get('inviteToken') || searchParams.get('token') || undefined;
   const emailParam = searchParams.get('email') || '';
 
   const {
@@ -63,7 +63,11 @@ export const RegisterPage: React.FC = () => {
       } else {
         toast.success('Account created successfully! Welcome to TeamFlow.');
       }
-      navigate('/dashboard', { replace: true });
+      if ((result as any)?.projectId) {
+        navigate(`/projects/${(result as any).projectId}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err: unknown) {
       const errorMsg = getErrorMessage(err, 'Registration failed. This email may already be registered.');
       setApiError(errorMsg);

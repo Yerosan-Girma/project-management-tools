@@ -57,13 +57,22 @@ export class InvitationsController {
     ApiResponse.success(res, 'Invitation email resent successfully.', invitation);
   };
 
+  getMyPendingInvitations = async (req: Request, res: Response): Promise<void> => {
+    const invitations = await this.invitationsService.getMyPendingInvitations(req.user!.email);
+    ApiResponse.success(res, 'Pending invitations retrieved.', invitations);
+  };
+
   inviteProjectMember = async (req: Request, res: Response): Promise<void> => {
-    const invitation = await this.invitationsService.inviteProjectMember(
+    const result = await this.invitationsService.inviteProjectMember(
       req.params.projectId,
       req.user!.id,
       req.body
     );
-    ApiResponse.created(res, 'Project invitation sent successfully.', invitation);
+    if ((result as any).directAdded) {
+      ApiResponse.success(res, (result as any).message || 'Member added to project.', result);
+      return;
+    }
+    ApiResponse.created(res, 'Project invitation sent successfully.', result);
   };
 
   listProjectInvitations = async (req: Request, res: Response): Promise<void> => {

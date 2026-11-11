@@ -23,6 +23,7 @@ export interface TaskDetailModalProps {
   projectMembers?: ProjectMember[];
   onTaskUpdated?: () => void;
   onTaskDeleted?: () => void;
+  isReadOnly?: boolean;
 }
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -33,6 +34,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   projectMembers = [],
   onTaskUpdated,
   onTaskDeleted,
+  isReadOnly = false,
 }) => {
   const [task, setTask] = useState<Task | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -199,7 +201,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         <div className="space-y-6">
           {/* Title Area */}
           <div>
-            {isEditingTitle ? (
+            {!isReadOnly && isEditingTitle ? (
               <div className="flex items-center gap-2">
                 <Input
                   value={title}
@@ -216,9 +218,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
             ) : (
               <h2
-                onClick={() => setIsEditingTitle(true)}
-                className="text-lg font-bold text-slate-900 dark:text-white cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 p-1.5 -m-1.5 rounded-lg transition-colors"
-                title="Click to edit title"
+                onClick={() => !isReadOnly && setIsEditingTitle(true)}
+                className={`text-lg font-bold text-slate-900 dark:text-white ${
+                  !isReadOnly ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 p-1.5 -m-1.5 rounded-lg' : ''
+                } transition-colors`}
+                title={!isReadOnly ? 'Click to edit title' : undefined}
               >
                 {task.title}
               </h2>
@@ -233,9 +237,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 Column Stage
               </label>
               <select
+                disabled={isReadOnly}
                 value={task.boardColumnId}
                 onChange={(e) => handleUpdateField({ boardColumnId: e.target.value })}
-                className="w-full text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5"
+                className="w-full text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {columns.map((col) => (
                   <option key={col.id} value={col.id}>
@@ -251,9 +256,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 Priority
               </label>
               <select
+                disabled={isReadOnly}
                 value={task.priority}
                 onChange={(e) => handleUpdateField({ priority: e.target.value as PriorityLevel })}
-                className="w-full text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5"
+                className="w-full text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
@@ -269,13 +275,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </label>
               <input
                 type="date"
+                disabled={isReadOnly}
                 value={task.dueDate ? task.dueDate.slice(0, 10) : ''}
                 onChange={(e) =>
                   handleUpdateField({
                     dueDate: e.target.value ? new Date(e.target.value).toISOString() : null,
                   })
                 }
-                className="w-full text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5"
+                className="w-full text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -287,10 +294,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </label>
             <Textarea
               rows={4}
+              disabled={isReadOnly}
               placeholder="Describe deliverables, technical requirements, or steps..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              onBlur={handleSaveDescription}
+              onBlur={() => !isReadOnly && handleSaveDescription()}
             />
           </div>
 
@@ -395,14 +403,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
           {/* Footer Delete Action */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleDeleteTask}
-              leftIcon={<Trash2 className="w-4 h-4" />}
-            >
-              Delete Task
-            </Button>
+            {!isReadOnly ? (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDeleteTask}
+                leftIcon={<Trash2 className="w-4 h-4" />}
+              >
+                Delete Task
+              </Button>
+            ) : (
+              <div />
+            )}
 
             <Button variant="outline" size="sm" onClick={onClose}>
               Close

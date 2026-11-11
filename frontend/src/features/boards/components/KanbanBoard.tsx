@@ -31,12 +31,14 @@ export interface KanbanBoardProps {
   projectId: string;
   projectKey: string;
   projectMembers?: ProjectMember[];
+  isReadOnly?: boolean;
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   projectId,
   projectKey,
   projectMembers = [],
+  isReadOnly = false,
 }) => {
   const [board, setBoard] = useState<Board | null>(null);
   const [columns, setColumns] = useState<BoardColumn[]>([]);
@@ -112,6 +114,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   // Drag handlers
   const handleDragStart = (event: DragStartEvent) => {
+    if (isReadOnly) return;
     const { active } = event;
     const task = tasks.find((t) => t.id === active.id);
     if (task) {
@@ -120,6 +123,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   const handleDragOver = (event: DragOverEvent) => {
+    if (isReadOnly) return;
     const { active, over } = event;
     if (!over) return;
 
@@ -149,8 +153,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
     setActiveTask(null);
+    if (isReadOnly) return;
+    const { active, over } = event;
 
     if (!over) return;
 
@@ -286,14 +291,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </span>
         </div>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleOpenAddColumn}
-          leftIcon={<Plus className="w-3.5 h-3.5" />}
-        >
-          Add Column
-        </Button>
+        {!isReadOnly && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleOpenAddColumn}
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+          >
+            Add Column
+          </Button>
+        )}
       </div>
 
       {/* DND Context & Kanban Horizontal Scroll */}
@@ -304,7 +311,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex items-start gap-4 overflow-x-auto pb-6 pt-1 min-h-[500px]">
+        <div className="flex items-start gap-4 overflow-x-auto pb-6 pt-1 min-h-[500px] snap-x snap-mandatory scroll-smooth touch-pan-x">
           {columns.map((column) => (
             <KanbanColumn
               key={column.id}
@@ -315,18 +322,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               onAddTask={handleOpenAddTask}
               onEditColumn={handleOpenEditColumn}
               onDeleteColumn={handleDeleteColumn}
+              isReadOnly={isReadOnly}
             />
           ))}
 
           {/* Quick Add Column Card Button */}
-          <button
-            type="button"
-            onClick={handleOpenAddColumn}
-            className="w-80 shrink-0 h-32 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary-500 dark:hover:border-primary-500 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 flex flex-col items-center justify-center gap-2 transition-all"
-          >
-            <Plus className="w-6 h-6" />
-            <span className="text-xs font-semibold">Add New Column</span>
-          </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              onClick={handleOpenAddColumn}
+              className="w-80 shrink-0 h-32 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary-500 dark:hover:border-primary-500 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 flex flex-col items-center justify-center gap-2 transition-all"
+            >
+              <Plus className="w-6 h-6" />
+              <span className="text-xs font-semibold">Add New Column</span>
+            </button>
+          )}
         </div>
 
         {/* Drag Overlay for Ghost Animation */}
@@ -337,6 +347,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               projectKey={projectKey}
               onSelect={() => {}}
               isOverlay
+              isReadOnly={isReadOnly}
             />
           ) : null}
         </DragOverlay>
@@ -365,6 +376,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         projectMembers={projectMembers}
         onTaskUpdated={loadBoardData}
         onTaskDeleted={loadBoardData}
+        isReadOnly={isReadOnly}
       />
 
       {/* Add / Edit Column Modal */}

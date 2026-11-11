@@ -355,7 +355,7 @@ export const AcceptInvitationPage: React.FC = () => {
                 onClick={handleDirectAccept}
                 rightIcon={<ArrowRight className="w-4 h-4" />}
               >
-                Accept & Go to Workspace Dashboard
+                {invitation.project ? 'Accept & Open Project Board' : 'Accept & Open Workspace'}
               </Button>
             </div>
           )}
@@ -449,7 +449,7 @@ export const AcceptInvitationPage: React.FC = () => {
                     isLoading={isProcessing}
                     rightIcon={<ArrowRight className="w-4 h-4" />}
                   >
-                    Create Account & Open Dashboard
+                    {invitation.project ? 'Create Account & Open Project Board' : 'Create Account & Enter Workspace'}
                   </Button>
                 </form>
               ) : (

@@ -9,6 +9,9 @@
   .dark {
     color-scheme: dark;
   }
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Custom modern scrollbar */

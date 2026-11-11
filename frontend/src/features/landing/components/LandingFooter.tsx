@@ -1,106 +1,93 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { footerPlatformLinks, footerProductLinks } from '../data/marketing';
 
 export const LandingFooter: React.FC = () => {
   return (
     <footer className="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          {/* Brand info */}
-          <div className="col-span-2 md:col-span-1 space-y-3">
+        <div className="mb-12 grid grid-cols-2 gap-8 md:grid-cols-4">
+          <div className="col-span-2 space-y-3 md:col-span-1">
             <Link to="/" className="flex items-center gap-2">
-              <img src="/logo/teamflow.svg" alt="TeamFlow Logo" className="h-7 w-7" />
+              <img src="/logo/teamflow.svg" alt="TeamFlow" className="h-7 w-7" />
               <span className="text-lg font-bold text-slate-900 dark:text-white">
                 Team<span className="text-primary-600">Flow</span>
               </span>
             </Link>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Modern project management and real-time collaboration for high-performing engineering and product teams.
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              Project management for software, product, operations, and client teams — boards, tasks, calendar, and live collaboration in one workspace.
             </p>
-            <div className="flex items-center gap-2 pt-2 text-xs text-emerald-600 font-medium">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>All Systems Operational</span>
+            <div className="flex items-center gap-2 pt-2 text-xs font-medium text-emerald-600">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              <span>All systems operational</span>
             </div>
           </div>
 
-          {/* Product links */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
-              Product
-            </h4>
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Product</h4>
             <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-              <li>
-                <a href="#features" className="hover:text-primary-600 transition-colors">
-                  Kanban Boards
-                </a>
-              </li>
-              <li>
-                <a href="#preview" className="hover:text-primary-600 transition-colors">
-                  Real-time Sync
-                </a>
-              </li>
-              <li>
-                <a href="#preview" className="hover:text-primary-600 transition-colors">
-                  Sprint Analytics
-                </a>
-              </li>
-              <li>
-                <a href="#how-it-works" className="hover:text-primary-600 transition-colors">
-                  Workspaces
-                </a>
-              </li>
+              {footerProductLinks.map((item) => (
+                <li key={item.to}>
+                  <Link to={item.to} className="transition-colors hover:text-primary-600">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Platform */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
-              Platform
-            </h4>
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Platform</h4>
             <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-              <li>
-                <Link to="/login" className="hover:text-primary-600 transition-colors">
-                  Sign In
-                </Link>
-              </li>
-              <li>
-                <Link to="/register" className="hover:text-primary-600 transition-colors">
-                  Create Account
-                </Link>
-              </li>
-              <li>
-                <a href="/api-docs" target="_blank" rel="noreferrer" className="hover:text-primary-600 transition-colors">
-                  API Documentation
-                </a>
-              </li>
-              <li>
-                <a href="#faq" className="hover:text-primary-600 transition-colors">
-                  Help & FAQs
-                </a>
-              </li>
+              {footerPlatformLinks.map((item) => (
+                <li key={item.to}>
+                  <Link to={item.to} className="transition-colors hover:text-primary-600">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Legal / Security */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
-              Security
-            </h4>
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Get in</h4>
             <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-              <li className="text-slate-500">JWT Dual-Token Auth</li>
-              <li className="text-slate-500">PostgreSQL Isolated DB</li>
-              <li className="text-slate-500">Strict Multi-Tenancy</li>
-              <li className="text-slate-500">WCAG Compliant UI</li>
+              <li>
+                <Link to="/login" className="transition-colors hover:text-primary-600">
+                  Sign in
+                </Link>
+              </li>
+              <li>
+                <Link to="/register" className="transition-colors hover:text-primary-600">
+                  Create account
+                </Link>
+              </li>
+              <li>
+                <Link to="/security" className="transition-colors hover:text-primary-600">
+                  JWT, RBAC, multi-tenancy
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="transition-colors hover:text-primary-600">
+                  Talk to us
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-slate-100 dark:border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400">
-          <p>© {new Date().getFullYear()} TeamFlow Platform Inc. All rights reserved.</p>
-          <div className="flex items-center gap-4 mt-3 sm:mt-0">
-            <span>Built with React & TypeScript</span>
-            <span>•</span>
-            <span>Socket.IO Real-time Engine</span>
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 pt-6 text-xs text-slate-400 sm:flex-row dark:border-slate-800">
+          <p>© {new Date().getFullYear()} TeamFlow. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <Link to="/security" className="hover:text-primary-600">
+              Security
+            </Link>
+            <Link to="/faq" className="hover:text-primary-600">
+              Help
+            </Link>
+            <Link to="/contact" className="hover:text-primary-600">
+              Contact
+            </Link>
           </div>
         </div>
       </div>

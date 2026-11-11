@@ -16,6 +16,7 @@ export interface KanbanColumnProps {
   onAddTask: (columnId: string) => void;
   onEditColumn: (column: BoardColumn) => void;
   onDeleteColumn: (columnId: string) => void;
+  isReadOnly?: boolean;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -26,9 +27,11 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onAddTask,
   onEditColumn,
   onDeleteColumn,
+  isReadOnly = false,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
+    disabled: isReadOnly,
     data: {
       type: 'Column',
       column,
@@ -44,7 +47,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   return (
     <div
       ref={setNodeRef}
-      className={`w-80 shrink-0 flex flex-col rounded-2xl bg-slate-100/70 p-3 dark:bg-slate-900/50 border transition-colors ${
+      className={`w-[85vw] sm:w-80 shrink-0 snap-center flex flex-col rounded-2xl bg-slate-100/70 p-3 dark:bg-slate-900/50 border transition-colors ${
         isOver
           ? 'border-primary-500/80 bg-primary-50/30 dark:bg-primary-950/20'
           : 'border-slate-200/80 dark:border-slate-800'
@@ -68,24 +71,26 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           </Badge>
         </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onAddTask(column.id)}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
-            title="Add task to column"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+        {!isReadOnly && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onAddTask(column.id)}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+              title="Add task to column"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Column Options Menu */}
         {menuOpen && (
@@ -122,13 +127,14 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
       {/* Task List */}
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-0.5 min-h-[140px] max-h-[calc(100vh-280px)]">
-        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy} disabled={isReadOnly}>
           {tasks.map((task) => (
             <TaskCard
               key={task.id}
               task={task}
               projectKey={projectKey}
               onSelect={onSelectTask}
+              isReadOnly={isReadOnly}
             />
           ))}
         </SortableContext>
@@ -141,17 +147,19 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       </div>
 
       {/* Bottom Quick-Add */}
-      <div className="pt-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-          onClick={() => onAddTask(column.id)}
-          leftIcon={<Plus className="w-3.5 h-3.5" />}
-        >
-          Add Task
-        </Button>
-      </div>
+      {!isReadOnly && (
+        <div className="pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+            onClick={() => onAddTask(column.id)}
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+          >
+            Add Task
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

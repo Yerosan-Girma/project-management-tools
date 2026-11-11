@@ -9,6 +9,9 @@ import { inviteMemberSchema, inviteProjectMemberSchema, respondInvitationSchema 
 const router = Router();
 const controller = new InvitationsController();
 
+// Authenticated pending invitations for current user
+router.get('/my-pending', authenticate, asyncHandler(controller.getMyPendingInvitations));
+
 // Public invitation verification endpoint
 router.get('/details/:token', asyncHandler(controller.getDetails));
 router.get('/details', asyncHandler(controller.getDetails));

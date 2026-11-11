@@ -89,7 +89,10 @@ export const WorkspaceDetailPage: React.FC = () => {
     );
   }
 
-  const isOwner = workspace.ownerId === user?.id;
+  const myMember = members.find((m) => m.userId === user?.id);
+  const isOwner = workspace.ownerId === user?.id || user?.platformRole === 'PLATFORM_ADMIN';
+  const canManage = isOwner || myMember?.role === 'ADMIN';
+  const isViewer = myMember?.role === 'GUEST';
 
   const handleUpdateRole = async (memberUserId: string, newRole: WorkspaceRole) => {
     try {
@@ -214,9 +217,11 @@ export const WorkspaceDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <Button size="sm" onClick={() => setIsInviteOpen(true)} leftIcon={<UserPlus className="w-4 h-4" />}>
-          Invite Member
-        </Button>
+        {canManage && (
+          <Button size="sm" onClick={() => setIsInviteOpen(true)} leftIcon={<UserPlus className="w-4 h-4" />}>
+            Invite Member
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -263,18 +268,25 @@ export const WorkspaceDetailPage: React.FC = () => {
 
       {/* Members Tab */}
       {activeTab === 'members' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Workspace Members</CardTitle>
-            <span className="text-xs text-slate-500">{members.length} Total Users</span>
-          </CardHeader>
-          <CardContent className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-xs">
+          <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Workspace Members</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{members.length} Total Users</p>
+            </div>
+            {canManage && (
+              <Button size="sm" onClick={() => setIsInviteOpen(true)} leftIcon={<UserPlus className="w-4 h-4" />}>
+                Invite Member
+              </Button>
+            )}
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 p-2 sm:p-4">
             {members.map((member) => {
               const isMemberOwner = member.userId === workspace.ownerId;
               const isSelf = member.userId === user?.id;
 
               return (
-                <div key={member.id} className="py-3.5 flex items-center justify-between gap-4">
+                <div key={member.id} className="py-3 px-2 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar src={member.user?.avatarUrl} name={member.user?.name} size="md" />
                     <div className="min-w-0">
@@ -292,7 +304,7 @@ export const WorkspaceDetailPage: React.FC = () => {
                         <Crown className="w-3.5 h-3.5 mr-1" />
                         Owner
                       </Badge>
-                    ) : isOwner ? (
+                    ) : canManage && !isSelf ? (
                       <div className="flex items-center gap-2">
                         <select
                           value={member.role}
@@ -304,22 +316,24 @@ export const WorkspaceDetailPage: React.FC = () => {
                           <option value="GUEST">Guest</option>
                         </select>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTransferUserId(member.userId);
-                            setIsTransferModalOpen(true);
-                          }}
-                          className="text-xs text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-                          title="Transfer ownership to this user"
-                        >
-                          <Crown className="w-4 h-4" />
-                        </button>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTransferUserId(member.userId);
+                              setIsTransferModalOpen(true);
+                            }}
+                            className="text-xs text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            title="Transfer ownership to this user"
+                          >
+                            <Crown className="w-4 h-4" />
+                          </button>
+                        )}
 
                         <button
                           type="button"
                           onClick={() => handleRemoveMember(member.userId)}
-                          className="text-xs text-rose-500 hover:text-rose-700 p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          className="text-xs text-rose-500 hover:text-rose-700 p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                           title="Remove user"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -334,20 +348,25 @@ export const WorkspaceDetailPage: React.FC = () => {
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Invitations Tab */}
       {activeTab === 'invitations' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Pending Invitations</CardTitle>
-            <Button size="sm" onClick={() => setIsInviteOpen(true)} leftIcon={<UserPlus className="w-4 h-4" />}>
-              Invite New
-            </Button>
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-xs">
+          <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Pending Invitations</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Invited users awaiting acceptance</p>
+            </div>
+            {canManage && (
+              <Button size="sm" onClick={() => setIsInviteOpen(true)} leftIcon={<UserPlus className="w-4 h-4" />}>
+                Invite New
+              </Button>
+            )}
+          </div>
+          <div className="p-2 sm:p-4">
             {invitations.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">
                 No pending invitations for this workspace.
@@ -355,7 +374,7 @@ export const WorkspaceDetailPage: React.FC = () => {
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {invitations.map((inv) => (
-                  <div key={inv.id} className="py-3 flex items-center justify-between gap-4">
+                  <div key={inv.id} className="py-3 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                         {inv.email}
@@ -365,7 +384,7 @@ export const WorkspaceDetailPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
@@ -391,7 +410,7 @@ export const WorkspaceDetailPage: React.FC = () => {
                         Copy Link
                       </Button>
 
-                      {isOwner && (
+                      {canManage && (
                         <Button
                           variant="danger"
                           size="sm"
@@ -406,42 +425,48 @@ export const WorkspaceDetailPage: React.FC = () => {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Settings Tab */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Workspace General Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
+          {!canManage && (
+            <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300">
+              ℹ️ <strong>Read-Only Mode:</strong> You are viewing workspace settings as a {isViewer ? 'guest viewer' : 'member'}. Only workspace administrators or the workspace owner can modify configurations or delete this workspace.
+            </div>
+          )}
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-xs">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Workspace General Settings</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Basic information and details for this workspace.</p>
+            </div>
+            <div className="p-4 sm:p-6">
               <form onSubmit={handleSaveSettings} className="space-y-4 max-w-lg">
                 <Input
                   label="Workspace Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  disabled={!isOwner}
+                  disabled={!canManage}
                 />
 
                 <Textarea
                   label="Description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  disabled={!isOwner}
+                  disabled={!canManage}
                   rows={3}
                 />
 
-                {isOwner && (
+                {canManage && (
                   <Button type="submit" isLoading={isSavingSettings}>
                     Save Settings
                   </Button>
                 )}
               </form>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Danger Zone */}
           {isOwner && (
@@ -450,7 +475,7 @@ export const WorkspaceDetailPage: React.FC = () => {
                 <CardTitle className="text-rose-600 dark:text-rose-400">Danger Zone</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
                       Delete Workspace
@@ -459,7 +484,7 @@ export const WorkspaceDetailPage: React.FC = () => {
                       Permanently delete this workspace and all associated projects and tasks.
                     </p>
                   </div>
-                  <Button variant="danger" size="sm" onClick={() => setIsDeleteModalOpen(true)}>
+                  <Button variant="danger" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="self-start sm:self-auto">
                     Delete Workspace
                   </Button>
                 </div>

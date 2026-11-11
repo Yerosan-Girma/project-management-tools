@@ -14,6 +14,7 @@ import {
   FolderKanban,
   Layers,
 } from 'lucide-react';
+import { useAuthStore } from '../../../stores/auth-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { projectService } from '../services/project.service';
 import { Project, ProjectStatus, PriorityLevel } from '../../../types/project.types';
@@ -24,11 +25,16 @@ import { Badge } from '../../../components/ui/Badge';
 import { Avatar } from '../../../components/ui/Avatar';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { CreateProjectModal } from '../components/CreateProjectModal';
+import { PendingInvitationsBanner } from '../../invitations/components/PendingInvitationsBanner';
 
 type ViewMode = 'table' | 'grid';
 
 export const ProjectsPage: React.FC = () => {
+  const { user } = useAuthStore();
   const { currentWorkspace } = useWorkspaceStore();
+  const isGuest =
+    currentWorkspace?.role === 'GUEST' ||
+    currentWorkspace?.members?.find((m) => m.userId === user?.id)?.role === 'GUEST';
   const [searchParams, setSearchParams] = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(searchParams.get('create') === 'true');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -146,16 +152,29 @@ export const ProjectsPage: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500">
-            Workspace deliverables in <span className="font-semibold text-slate-800 dark:text-slate-200">{currentWorkspace.name}</span>
+            {isGuest ? (
+              <>
+                Showing project you are collaborating on in <span className="font-semibold text-slate-800 dark:text-slate-200">{currentWorkspace.name}</span> (Guest scope)
+              </>
+            ) : (
+              <>
+                Workspace deliverables in <span className="font-semibold text-slate-800 dark:text-slate-200">{currentWorkspace.name}</span>
+              </>
+            )}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={handleOpenCreate} leftIcon={<Plus className="w-4 h-4" />}>
-            New Project
-          </Button>
-        </div>
+        {!isGuest && (
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleOpenCreate} leftIcon={<Plus className="w-4 h-4" />}>
+              New Project
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Pending Invitations Banner */}
+      <PendingInvitationsBanner onProcessed={loadProjects} />
 
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -286,8 +305,8 @@ export const ProjectsPage: React.FC = () => {
               ? 'Try modifying your search or clearing active filters.'
               : 'Create your first project with a default Kanban board to organize team tasks and milestones.'
           }
-          actionLabel={searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL' ? undefined : 'Create Project'}
-          onAction={searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL' ? undefined : handleOpenCreate}
+          actionLabel={searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || isGuest ? undefined : 'Create Project'}
+          onAction={searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || isGuest ? undefined : handleOpenCreate}
         />
       ) : viewMode === 'table' ? (
         /* STRUCTURED TABLE / LIST VIEW */

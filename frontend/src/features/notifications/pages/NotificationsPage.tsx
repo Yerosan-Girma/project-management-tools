@@ -66,9 +66,12 @@ export const NotificationsPage: React.FC = () => {
     }
 
     // Direct navigation if resourceId is provided
-    if (notification.resourceType === 'PROJECT' && notification.resourceId) {
+    const resType = notification.resourceType?.toUpperCase();
+    if (resType === 'INVITATION' && notification.resourceId) {
+      navigate(`/invitations/${notification.resourceId}`);
+    } else if (resType === 'PROJECT' && notification.resourceId) {
       navigate(`/projects/${notification.resourceId}`);
-    } else if (notification.resourceType === 'WORKSPACE' && notification.resourceId) {
+    } else if (resType === 'WORKSPACE' && notification.resourceId) {
       navigate(`/workspaces/${notification.resourceId}`);
     }
   };
@@ -95,6 +98,7 @@ export const NotificationsPage: React.FC = () => {
         return <MessageSquare className="w-5 h-5 text-sky-500" />;
       case 'WORKSPACE_INVITATION':
         return <Building2 className="w-5 h-5 text-indigo-500" />;
+      case 'PROJECT_MEMBER_ADDED':
       case 'PROJECT_ADDED':
         return <FolderGit2 className="w-5 h-5 text-emerald-500" />;
       default:

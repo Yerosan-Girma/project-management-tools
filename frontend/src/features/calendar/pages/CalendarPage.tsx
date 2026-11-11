@@ -132,69 +132,73 @@ export const CalendarPage: React.FC = () => {
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
-          {/* Weekday Header */}
-          <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-center py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
-            {weekDays.map((day) => (
-              <div key={day}>{day}</div>
-            ))}
-          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[700px] sm:min-w-0">
+              {/* Weekday Header */}
+              <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-center py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                {weekDays.map((day) => (
+                  <div key={day}>{day}</div>
+                ))}
+              </div>
 
-          {/* Days Grid */}
-          <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 dark:divide-slate-800/80">
-            {days.map((day) => {
-              const isCurrentMonth = isSameMonth(day, monthStart);
-              const isCurrentDay = isToday(day);
+              {/* Days Grid */}
+              <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 dark:divide-slate-800/80">
+                {days.map((day) => {
+                  const isCurrentMonth = isSameMonth(day, monthStart);
+                  const isCurrentDay = isToday(day);
 
-              // Find tasks due on this day
-              const dayTasks = tasks.filter(
-                (t) => t.dueDate && isSameDay(new Date(t.dueDate), day)
-              );
+                  // Find tasks due on this day
+                  const dayTasks = tasks.filter(
+                    (t) => t.dueDate && isSameDay(new Date(t.dueDate), day)
+                  );
 
-              return (
-                <div
-                  key={day.toISOString()}
-                  className={`min-h-[110px] p-2 flex flex-col justify-between transition-colors ${
-                    !isCurrentMonth ? 'bg-slate-50/40 dark:bg-slate-950/20 text-slate-300 dark:text-slate-600' : ''
-                  } ${isCurrentDay ? 'bg-primary-50/30 dark:bg-primary-950/20' : ''}`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span
-                      className={`text-xs font-semibold h-6 w-6 rounded-full flex items-center justify-center ${
-                        isCurrentDay
-                          ? 'bg-primary-600 text-white font-bold'
-                          : isCurrentMonth
-                          ? 'text-slate-700 dark:text-slate-300'
-                          : 'text-slate-400 dark:text-slate-600'
-                      }`}
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={`min-h-[110px] p-2 flex flex-col justify-between transition-colors ${
+                        !isCurrentMonth ? 'bg-slate-50/40 dark:bg-slate-950/20 text-slate-300 dark:text-slate-600' : ''
+                      } ${isCurrentDay ? 'bg-primary-50/30 dark:bg-primary-950/20' : ''}`}
                     >
-                      {format(day, 'd')}
-                    </span>
+                      <div className="flex items-center justify-between mb-1">
+                        <span
+                          className={`text-xs font-semibold h-6 w-6 rounded-full flex items-center justify-center ${
+                            isCurrentDay
+                              ? 'bg-primary-600 text-white font-bold'
+                              : isCurrentMonth
+                              ? 'text-slate-700 dark:text-slate-300'
+                              : 'text-slate-400 dark:text-slate-600'
+                          }`}
+                        >
+                          {format(day, 'd')}
+                        </span>
 
-                    {dayTasks.length > 0 && (
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {dayTasks.length}
-                      </span>
-                    )}
-                  </div>
+                        {dayTasks.length > 0 && (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {dayTasks.length}
+                          </span>
+                        )}
+                      </div>
 
-                  {/* Task Chips for Day */}
-                  <div className="space-y-1 overflow-y-auto max-h-20">
-                    {dayTasks.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => handleOpenTask(t)}
-                        className={`w-full text-left truncate text-[11px] px-1.5 py-0.5 rounded border transition-shadow hover:shadow-xs font-medium block ${getPriorityColor(
-                          t.priority
-                        )}`}
-                      >
-                        {t.title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+                      {/* Task Chips for Day */}
+                      <div className="space-y-1 overflow-y-auto max-h-20">
+                        {dayTasks.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => handleOpenTask(t)}
+                            className={`w-full text-left truncate text-[11px] px-1.5 py-0.5 rounded border transition-shadow hover:shadow-xs font-medium block ${getPriorityColor(
+                              t.priority
+                            )}`}
+                          >
+                            {t.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}

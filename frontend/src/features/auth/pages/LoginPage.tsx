@@ -137,7 +137,7 @@ export const LoginPage: React.FC = () => {
               onClick={() => handleQuickFill('alice@teamflow.local')}
               className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
             >
-              <div className="font-semibold text-slate-800 dark:text-slate-200">Alice</div>
+              <div className="font-semibold text-slate-800 dark:text-slate-200">Abebe Bikila</div>
               <div className="text-[10px] text-slate-500">Project Owner</div>
             </button>
             <button
@@ -145,24 +145,24 @@ export const LoginPage: React.FC = () => {
               onClick={() => handleQuickFill('bob@teamflow.local')}
               className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
             >
-              <div className="font-semibold text-slate-800 dark:text-slate-200">Bob</div>
-              <div className="text-[10px] text-slate-500">Developer</div>
+              <div className="font-semibold text-slate-800 dark:text-slate-200">Almaz Ayana</div>
+              <div className="text-[10px] text-slate-500">Developer (Member)</div>
             </button>
             <button
               type="button"
-              onClick={() => handleQuickFill('yerosang463@gmail.com')}
+              onClick={() => handleQuickFill('admin@teamflow.local')}
               className="text-left px-2 py-1.5 rounded-md border border-purple-200 dark:border-purple-800 hover:border-purple-400 hover:bg-purple-50/40 dark:hover:bg-purple-950/40 text-xs transition-colors"
             >
-              <div className="font-semibold text-purple-800 dark:text-purple-200">Platform Admin</div>
-              <div className="text-[10px] text-purple-600 dark:text-purple-400">yerosang463@gmail.com</div>
+              <div className="font-semibold text-purple-800 dark:text-purple-200">Selamawit Bekele</div>
+              <div className="text-[10px] text-purple-600 dark:text-purple-400">Platform Admin</div>
             </button>
             <button
               type="button"
               onClick={() => handleQuickFill('charlie@teamflow.local')}
               className="text-left px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-slate-800 text-xs transition-colors"
             >
-              <div className="font-semibold text-slate-800 dark:text-slate-200">Charlie</div>
-              <div className="text-[10px] text-slate-500">Guest</div>
+              <div className="font-semibold text-slate-800 dark:text-slate-200">Dawit Yohannes</div>
+              <div className="text-[10px] text-slate-500">Guest (Viewer)</div>
             </button>
           </div>
         </div>

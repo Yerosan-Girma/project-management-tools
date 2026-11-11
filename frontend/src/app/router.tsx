@@ -1,5 +1,12 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import LandingPage from '../features/landing/pages/LandingPage';
+import FeaturesPage from '../features/landing/pages/FeaturesPage';
+import HowItWorksPage from '../features/landing/pages/HowItWorksPage';
+import PricingPage from '../features/landing/pages/PricingPage';
+import FaqPage from '../features/landing/pages/FaqPage';
+import AboutPage from '../features/landing/pages/AboutPage';
+import SecurityPage from '../features/landing/pages/SecurityPage';
+import ContactPage from '../features/landing/pages/ContactPage';
 import LoginPage from '../features/auth/pages/LoginPage';
 import RegisterPage from '../features/auth/pages/RegisterPage';
 import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
@@ -19,12 +26,21 @@ import AcceptInvitationPage from '../features/invitations/pages/AcceptInvitation
 import { GuestRoute } from '../components/layout/GuestRoute';
 import { ProtectedRoute } from '../components/layout/ProtectedRoute';
 import { AppLayout } from '../components/layout/AppLayout';
+import { MarketingLayout } from '../components/layout/MarketingLayout';
 
 export const router = createBrowserRouter([
-  // Public Marketing
   {
-    path: '/',
-    element: <LandingPage />,
+    element: <MarketingLayout />,
+    children: [
+      { path: '/', element: <LandingPage /> },
+      { path: '/features', element: <FeaturesPage /> },
+      { path: '/how-it-works', element: <HowItWorksPage /> },
+      { path: '/pricing', element: <PricingPage /> },
+      { path: '/faq', element: <FaqPage /> },
+      { path: '/about', element: <AboutPage /> },
+      { path: '/security', element: <SecurityPage /> },
+      { path: '/contact', element: <ContactPage /> },
+    ],
   },
   // Public / Token Invitations
   {

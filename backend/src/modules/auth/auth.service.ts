@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { AuthRepository } from './auth.repository';
+import { InvitationsRepository } from '../invitations/invitations.repository';
 import { prisma } from '../../config/database';
 import { InvitationStatus } from '@prisma/client';
 import { env } from '../../config/env';
@@ -17,7 +18,10 @@ import {
 } from './auth.schema';
 
 export class AuthService {
-  constructor(private readonly authRepo: AuthRepository = new AuthRepository()) {}
+  constructor(
+    private readonly authRepo: AuthRepository = new AuthRepository(),
+    private readonly invitationsRepo: InvitationsRepository = new InvitationsRepository()
+  ) {}
 
   // Hash password using Argon2id
   async hashPassword(password: string): Promise<string> {
@@ -155,35 +159,21 @@ export class AuthService {
       new Date() <= targetInvitation.expiresAt &&
       (Boolean(input.inviteToken) || targetInvitation.email.toLowerCase() === user.email.toLowerCase())
     ) {
-      await prisma.$transaction([
-        prisma.workspaceInvitation.update({
-          where: { id: targetInvitation.id },
-          data: { status: InvitationStatus.ACCEPTED, respondedAt: new Date() }
-        }),
-        prisma.workspaceMember.upsert({
-          where: {
-            workspaceId_userId: {
-              workspaceId: targetInvitation.workspaceId,
-              userId: user.id
-            }
-          },
-          create: {
-            workspaceId: targetInvitation.workspaceId,
-            userId: user.id,
-            role: targetInvitation.role
-          },
-          update: {
-            role: targetInvitation.role
-          }
-        }),
-        prisma.user.update({
-          where: { id: user.id },
-          data: { emailVerifiedAt: new Date() }
-        })
-      ]);
+      // Accept invitation using repo transaction which handles WorkspaceMember AND ProjectMember enrollment
+      await this.invitationsRepo.acceptInvitation(
+        targetInvitation.id,
+        targetInvitation.workspaceId,
+        user.id,
+        targetInvitation.role
+      );
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerifiedAt: new Date() }
+      });
 
       joinedWorkspace = targetInvitation.workspace;
-      assignedRole = targetInvitation.role;
+      assignedRole = targetInvitation.projectRole || targetInvitation.role;
       user.emailVerifiedAt = new Date();
 
       await prisma.activityLog.create({
@@ -196,12 +186,14 @@ export class AuthService {
           metadata: {
             userEmail: user.email,
             role: targetInvitation.role,
+            projectRole: targetInvitation.projectRole || null,
+            projectId: targetInvitation.projectId || null,
             flow: 'auto_registered'
           }
         }
       });
 
-      logger.info(`🎉 User ${user.email} auto-joined workspace ${targetInvitation.workspace.name} as ${targetInvitation.role}`);
+      logger.info(`🎉 User ${user.email} auto-joined workspace ${targetInvitation.workspace.name} as ${targetInvitation.projectRole || targetInvitation.role}`);
     }
 
     return {
@@ -221,7 +213,9 @@ export class AuthService {
         expiresIn: env.ACCESS_TOKEN_EXPIRES_IN
       },
       joinedWorkspace,
-      assignedRole
+      assignedRole,
+      projectId: targetInvitation?.projectId || null,
+      projectRole: targetInvitation?.projectRole || null
     };
   }
 

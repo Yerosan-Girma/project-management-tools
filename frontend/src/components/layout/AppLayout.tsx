@@ -18,6 +18,8 @@ import {
   Kanban,
   ShieldAlert,
   ShieldCheck,
+  CalendarDays,
+  Home,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../stores/auth-store';
@@ -126,11 +128,17 @@ export const AppLayout: React.FC = () => {
     navigate('/login');
   };
 
+  const isGuest =
+    currentWorkspace?.role === 'GUEST' ||
+    currentWorkspace?.members?.find((m) => m.userId === user?.id)?.role === 'GUEST';
+
   const mainNavItems = [
     { label: 'Overview', path: '/dashboard', icon: LayoutDashboard },
     { label: 'My Tasks', path: '/my-tasks', icon: CheckSquare },
     { label: 'Projects', path: '/projects', icon: FolderGit2 },
+    { label: 'Calendar', path: '/calendar', icon: CalendarDays },
     { label: 'Team', path: '/team', icon: Users },
+    ...(!isGuest ? [{ label: 'Workspaces', path: '/workspaces', icon: Layers }] : []),
   ];
 
   const personalNavItems = [
@@ -157,6 +165,13 @@ export const AppLayout: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <Link
+            to="/"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-primary-400 transition-colors"
+            title="Website Home Page"
+          >
+            <Home className="w-4 h-4" />
+          </Link>
           <Link
             to="/notifications"
             className="p-1.5 relative text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
@@ -202,7 +217,14 @@ export const AppLayout: React.FC = () => {
                 Team<span className="text-primary-600">Flow</span>
               </span>
             </Link>
-            <div className="hidden md:flex items-center">
+            <div className="hidden md:flex items-center gap-1">
+              <Link
+                to="/"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-slate-800 dark:hover:text-primary-400 transition-colors"
+                title="Go to Website Home Page"
+              >
+                <Home className="w-4 h-4" />
+              </Link>
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -212,6 +234,21 @@ export const AppLayout: React.FC = () => {
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
             </div>
+          </div>
+
+          {/* Quick link to Home page */}
+          <div className="px-3 pt-2">
+            <Link
+              to="/"
+              onClick={() => setSidebarOpen(false)}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary-600 dark:hover:text-primary-400 border border-slate-200/60 dark:border-slate-800 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <Home className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
+                <span>Website Home</span>
+              </span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">Public Site</span>
+            </Link>
           </div>
 
           {/* WORKSPACE SELECTOR */}
@@ -263,19 +300,21 @@ export const AppLayout: React.FC = () => {
                     ))}
                   </div>
 
-                  <div className="border-t border-slate-100 dark:border-slate-800 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWorkspaceMenuOpen(false);
-                        setIsCreateWorkspaceOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>New Workspace</span>
-                    </button>
-                  </div>
+                  {!isGuest && (
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWorkspaceMenuOpen(false);
+                          setIsCreateWorkspaceOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>New Workspace</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -345,14 +384,16 @@ export const AppLayout: React.FC = () => {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Projects
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setIsCreateProjectOpen(true)}
-                  title="Create new project"
-                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+                {!isGuest && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateProjectOpen(true)}
+                    title="Create new project"
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               <div className="space-y-0.5">
@@ -454,6 +495,14 @@ export const AppLayout: React.FC = () => {
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setUserMenuOpen(false)} />
                 <div className="absolute left-3 right-3 bottom-full mb-1.5 z-40 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 space-y-1">
+                  <Link
+                    to="/"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <Home className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
+                    <span>Back to Home Page</span>
+                  </Link>
                   <Link
                     to="/settings?tab=profile"
                     onClick={() => setUserMenuOpen(false)}

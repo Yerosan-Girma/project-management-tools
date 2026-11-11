@@ -19,6 +19,7 @@ export interface Workspace {
   description?: string | null;
   avatarUrl?: string | null;
   ownerId: string;
+  role?: WorkspaceRole;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,12 @@ export interface WorkspaceInvitation {
     id: string;
     name: string;
     email: string;
+  };
+  inviter?: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string | null;
   };
   workspace?: {
     id: string;

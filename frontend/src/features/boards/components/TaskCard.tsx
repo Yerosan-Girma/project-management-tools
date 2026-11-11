@@ -11,6 +11,7 @@ export interface TaskCardProps {
   projectKey?: string;
   onSelect: (task: Task) => void;
   isOverlay?: boolean;
+  isReadOnly?: boolean;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -18,6 +19,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   projectKey,
   onSelect,
   isOverlay = false,
+  isReadOnly = false,
 }) => {
   const {
     attributes,
@@ -28,6 +30,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     isDragging,
   } = useSortable({
     id: task.id,
+    disabled: isReadOnly,
     data: {
       type: 'Task',
       task,
@@ -64,7 +67,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {...attributes}
       {...listeners}
       onClick={() => onSelect(task)}
-      className={`group relative rounded-xl border bg-white p-3.5 shadow-xs transition-all duration-150 cursor-grab active:cursor-grabbing hover:border-slate-300 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-slate-700 ${
+      className={`group relative rounded-xl border bg-white p-3.5 shadow-xs transition-all duration-150 ${
+        isReadOnly ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+      } hover:border-slate-300 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-slate-700 ${
         isDragging ? 'opacity-30 border-dashed border-primary-500' : ''
       } ${isOverlay ? 'shadow-2xl ring-2 ring-primary-500 rotate-1 cursor-grabbing' : ''}`}
     >

@@ -114,6 +114,11 @@ export const workspaceService = {
     return response.data.data;
   },
 
+  async getMyPendingInvitations(): Promise<WorkspaceInvitation[]> {
+    const response = await api.get<ApiResponse<WorkspaceInvitation[]>>('/invitations/my-pending');
+    return response.data.data;
+  },
+
   async acceptInvitation(token: string): Promise<any> {
     const response = await api.post<ApiResponse<any>>('/invitations/accept', { token });
     return response.data.data;

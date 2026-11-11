@@ -62,6 +62,7 @@ import { CreateProjectModal } from '../../projects/components/CreateProjectModal
 import { InviteMemberModal } from '../../workspaces/components/InviteMemberModal';
 import { QuickCreateTaskModal } from '../components/QuickCreateTaskModal';
 import { PlatformAdminConsole } from '../components/PlatformAdminConsole';
+import { PendingInvitationsBanner } from '../../invitations/components/PendingInvitationsBanner';
 
 type TaskFilterType = 'ALL' | 'PENDING' | 'DUE_SOON' | 'URGENT' | 'OVERDUE' | 'COMPLETED';
 type AnalyticsTab = 'VELOCITY' | 'STATUS' | 'PRIORITY';
@@ -376,6 +377,9 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-7 pb-10">
+      {/* Pending Invitations Banner */}
+      <PendingInvitationsBanner onProcessed={loadDashboardData} />
+
       {/* 0. PLATFORM SUPERADMIN CONTROL SWITCHER */}
       {isPlatformAdmin && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-2xl bg-purple-50/90 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 shadow-xs">
@@ -605,7 +609,7 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* 3. INTERACTIVE KPI CARDS ROW (Clickable to Filter Tasks Below) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* KPI 1: Assigned Total / Workspace Total */}
         <div
           onClick={() => setTaskFilter('ALL')}

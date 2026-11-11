@@ -8,18 +8,29 @@ let transporter: nodemailer.Transporter | null = null;
 export function getEmailTransporter(): nodemailer.Transporter {
   if (transporter) return transporter;
 
-  // 1. Prioritize SMTP (e.g. Mailtrap Sandbox or custom SMTP) when user/pass are provided
+  // 1. Prioritize SMTP (e.g. Gmail, Mailtrap Sandbox, or custom SMTP) when user/pass are provided
   if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
-    transporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT || 2525,
-      secure: env.SMTP_PORT === 465,
+    const isGmail = env.SMTP_HOST.toLowerCase().includes('gmail');
+    const port = env.SMTP_PORT || 587;
+    const secure = port === 465;
+
+    const config: any = {
+      host: isGmail ? 'smtp.gmail.com' : env.SMTP_HOST,
+      port,
+      secure,
+      pool: true,
+      maxConnections: 3,
       auth: {
         user: env.SMTP_USER,
-        pass: env.SMTP_PASS
-      }
-    });
-    logger.info(`📧 SMTP Email Transporter configured with host: ${env.SMTP_HOST}`);
+        pass: env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    };
+
+    transporter = nodemailer.createTransport(config);
+    logger.info(`📧 SMTP Email Transporter configured for ${env.SMTP_USER} via ${isGmail ? 'smtp.gmail.com' : env.SMTP_HOST}:${port} (secure: ${secure}, pooled: true)`);
   } else if (env.MAILTRAP_TOKEN) {
     transporter = nodemailer.createTransport(
       MailtrapTransport({
@@ -32,12 +43,23 @@ export function getEmailTransporter(): nodemailer.Transporter {
     transporter = nodemailer.createTransport({
       streamTransport: true,
       newline: 'windows',
-      buffer: true
+      buffer: true,
     });
     logger.info('📧 Email credentials not provided. Emails will be logged to console in dev mode.');
   }
 
   return transporter;
+}
+
+export function resetEmailTransporter(): void {
+  if (transporter) {
+    try {
+      transporter.close();
+    } catch {
+      // Ignored
+    }
+  }
+  transporter = null;
 }
 
 export interface SendEmailOptions {
@@ -61,16 +83,24 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
         .replace(/\s+/g, ' ')
         .trim();
 
+    // Strictly align RFC 5322 From address with authenticated SMTP_USER to avoid DMARC/SPF misalignment and junk delivery
+    const senderAddress = env.SMTP_USER?.trim() || 'yerosang463@gmail.com';
+    const senderName = 'TeamFlow';
+
     const mailOptions: Record<string, any> = {
-      from: env.EMAIL_FROM,
-      replyTo: env.SMTP_USER || undefined,
+      from: {
+        name: senderName,
+        address: senderAddress,
+      },
+      replyTo: senderAddress,
       to,
       subject,
       text: plainText,
       html,
       headers: {
         'X-Priority': '3',
-        'X-Mailer': 'TeamFlow Mailer',
+        'X-Mailer': 'TeamFlow App Mailer',
+        'List-Unsubscribe': `<mailto:${senderAddress}?subject=unsubscribe>`,
       },
     };
 
@@ -88,7 +118,8 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
     }
     return true;
   } catch (error: any) {
-    // Temporary email provider failure must NOT fail database transactions
+    // Reset transporter on connection/auth errors so subsequent attempts can reconnect fresh
+    resetEmailTransporter();
     logger.error(`❌ Failed to deliver email to ${Array.isArray(to) ? to.join(', ') : to}: ${error.message}`);
     return false;
   }

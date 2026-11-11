@@ -38,7 +38,7 @@ async function main() {
   // 3. Create Users
   const adminUser = await prisma.user.create({
     data: {
-      name: 'Platform Admin',
+      name: 'Selamawit Bekele',
       email: 'admin@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.PLATFORM_ADMIN,
@@ -49,7 +49,7 @@ async function main() {
 
   const alice = await prisma.user.create({
     data: {
-      name: 'Alice Johnson',
+      name: 'Abebe Bikila',
       email: 'alice@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.USER,
@@ -60,7 +60,7 @@ async function main() {
 
   const bob = await prisma.user.create({
     data: {
-      name: 'Bob Smith',
+      name: 'Almaz Ayana',
       email: 'bob@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.USER,
@@ -71,7 +71,7 @@ async function main() {
 
   const charlie = await prisma.user.create({
     data: {
-      name: 'Charlie Davis',
+      name: 'Dawit Yohannes',
       email: 'charlie@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.USER,
@@ -80,7 +80,7 @@ async function main() {
     }
   });
 
-  console.log('👤 Created test users: admin, alice, bob, charlie (Password: Password123!)');
+  console.log('👤 Created test users: Selamawit Bekele (admin), Abebe Bikila (alice), Almaz Ayana (bob), Dawit Yohannes (charlie) (Password: Password123!)');
 
   // 4. Create Workspace: Acme Corp Engineering
   const acmeWorkspace = await prisma.workspace.create({
@@ -246,7 +246,7 @@ async function main() {
       recipientId: bob.id,
       type: NotificationType.TASK_ASSIGNED,
       title: 'New Task Assignment',
-      message: 'Alice Johnson assigned you to "Design database schema & relations".',
+      message: 'Abebe Bikila assigned you to "Design database schema & relations".',
       resourceType: 'task',
       resourceId: task1.id,
       isRead: false

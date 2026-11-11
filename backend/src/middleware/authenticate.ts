@@ -47,9 +47,14 @@ export async function authenticate(
       throw new AppError('Invalid access token.', 401, ErrorCode.INVALID_TOKEN);
     }
 
+    const userId = decoded.userId || (decoded as any).id;
+    if (!userId) {
+      throw new AppError('Invalid access token payload.', 401, ErrorCode.INVALID_TOKEN);
+    }
+
     // Check User in database
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: userId },
       select: {
         id: true,
         email: true,

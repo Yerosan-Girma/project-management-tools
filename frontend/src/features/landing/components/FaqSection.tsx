@@ -1,85 +1,82 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
+import { faqs } from '../data/marketing';
+import { cn } from '../../../utils/cn';
 
-interface FaqItem {
-  question: string;
-  answer: string;
+interface FaqSectionProps {
+  limit?: number;
+  showAllLink?: boolean;
+  showHeading?: boolean;
 }
 
-const faqs: FaqItem[] = [
-  {
-    question: 'How does real-time synchronization work in TeamFlow?',
-    answer:
-      'TeamFlow connects active team members via secure WebSockets. Whenever a teammate creates a task, drags a card to a new column, or posts a comment, state updates propagate instantly across all connected clients without needing to reload.',
-  },
-  {
-    question: 'What roles and permissions are supported?',
-    answer:
-      'TeamFlow provides four workspace hierarchy tiers: Owner (full administrative rights and settings control), Admin (can create projects and invite members), Member (creates and updates assigned tasks and comments), and Viewer (read-only observer access).',
-  },
-  {
-    question: 'Can I customize Kanban board columns and workflow stages?',
-    answer:
-      'Yes. Every project automatically starts with standard workflow stages (To Do, In Progress, Review, Completed) that you can rename, reorder, or customize to match your team’s delivery methodology.',
-  },
-  {
-    question: 'Is workspace data strictly isolated between different teams?',
-    answer:
-      'Absolutely. Workspaces are strictly isolated multi-tenant environments. Users can only access projects, tasks, and member lists for workspaces they have explicitly created or been invited to.',
-  },
-];
-
-export const FaqSection: React.FC = () => {
+export const FaqSection: React.FC<FaqSectionProps> = ({ limit, showAllLink = true, showHeading = true }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
-
-  const toggle = (idx: number) => {
-    setOpenIndex(openIndex === idx ? null : idx);
-  };
+  const items = limit ? faqs.slice(0, limit) : faqs;
 
   return (
-    <section id="faq" className="py-20">
+    <section id="faq" className="scroll-mt-20 py-20">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-14">
-          <span className="text-xs font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
-            Frequently Asked Questions
-          </span>
-          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-4xl mt-1">
-            Everything you need to know
-          </h2>
-          <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-            Common questions regarding TeamFlow features, security, and real-time collaboration.
-          </p>
-        </div>
+        {showHeading && (
+          <div className="mb-10 text-center">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
+              Frequently asked questions
+            </span>
+            <h2 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
+              Everything you need to know
+            </h2>
+          </div>
+        )}
 
         <div className="space-y-3">
-          {faqs.map((faq, index) => {
+          {items.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
               <div
-                key={index}
-                className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden transition-all duration-150"
+                key={faq.question}
+                className={cn(
+                  'overflow-hidden rounded-2xl border bg-white transition-all dark:bg-slate-900',
+                  isOpen ? 'border-primary-200 dark:border-primary-800' : 'border-slate-200/80 dark:border-slate-800'
+                )}
               >
                 <button
                   type="button"
-                  onClick={() => toggle(index)}
-                  className="w-full flex items-center justify-between p-5 text-left text-sm font-semibold text-slate-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  onClick={() => setOpenIndex(isOpen ? null : index)}
+                  className="flex w-full items-center justify-between p-5 text-left text-sm font-semibold text-slate-900 transition-colors hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
+                  aria-expanded={isOpen}
                 >
                   <span>{faq.question}</span>
                   <ChevronDown
-                    className={`w-4 h-4 text-slate-400 shrink-0 ml-4 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-primary-600' : ''
-                    }`}
+                    className={cn(
+                      'ml-4 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200',
+                      isOpen && 'rotate-180 text-primary-600'
+                    )}
                   />
                 </button>
-                {isOpen && (
-                  <div className="px-5 pb-5 pt-0 text-xs leading-relaxed text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/80 mt-1 pt-3">
-                    {faq.answer}
+                <div
+                  className={cn(
+                    'grid transition-all duration-200',
+                    isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <p className="border-t border-slate-100 px-5 pb-5 pt-3 text-xs leading-relaxed text-slate-600 dark:border-slate-800/80 dark:text-slate-400">
+                      {faq.answer}
+                    </p>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
         </div>
+
+        {showAllLink && limit && (
+          <p className="mt-6 text-center text-sm">
+            <Link to="/faq" className="font-semibold text-primary-600 hover:text-primary-700">
+              View all questions
+            </Link>
+          </p>
+        )}
       </div>
     </section>
   );
