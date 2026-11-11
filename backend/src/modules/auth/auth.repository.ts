@@ -1,20 +1,46 @@
 import { prisma } from '../../config/database';
 import { User, RefreshToken, PasswordResetToken, EmailVerificationToken, UserStatus, PlatformRole } from '@prisma/client';
 
+const DEMO_EMAIL_ALIASES: Record<string, string> = {
+  'admin@teamflow.local': 'yerosan@teamflow.local',
+  'admin@team.local': 'yerosan@teamflow.local',
+  'yerosan@team.local': 'yerosan@teamflow.local',
+  'yerosan.girma@teamflow.local': 'yerosan@teamflow.local',
+  'yerosan.girma@team.local': 'yerosan@teamflow.local',
+  'alice@teamflow.local': 'yoni@teamflow.local',
+  'alice@team.local': 'yoni@teamflow.local',
+  'yoni@team.local': 'yoni@teamflow.local',
+  'yoni.tola@teamflow.local': 'yoni@teamflow.local',
+  'yoni.tola@team.local': 'yoni@teamflow.local',
+  'bob@teamflow.local': 'gemachu@teamflow.local',
+  'bob@team.local': 'gemachu@teamflow.local',
+  'gemachu@team.local': 'gemachu@teamflow.local',
+  'charlie@teamflow.local': 'tesfaye@teamflow.local',
+  'charlie@team.local': 'tesfaye@teamflow.local',
+  'tesfaye@team.local': 'tesfaye@teamflow.local',
+};
+
+function resolveEmail(email: string): string {
+  const clean = email.toLowerCase().trim();
+  return DEMO_EMAIL_ALIASES[clean] || clean;
+}
+
 export class AuthRepository {
   async findUserByEmail(email: string): Promise<User | null> {
+    const targetEmail = resolveEmail(email);
     return prisma.user.findFirst({
       where: {
-        email: email.toLowerCase(),
+        email: targetEmail,
         deletedAt: null
       }
     });
   }
 
   async findAnyUserByEmail(email: string): Promise<User | null> {
+    const targetEmail = resolveEmail(email);
     return prisma.user.findUnique({
       where: {
-        email: email.toLowerCase()
+        email: targetEmail
       }
     });
   }

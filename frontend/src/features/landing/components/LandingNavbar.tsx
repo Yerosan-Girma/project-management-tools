@@ -15,6 +15,15 @@ import {
   BarChart3,
   LayoutDashboard,
   Layers,
+  Building2,
+  CreditCard,
+  HelpCircle,
+  ShieldCheck,
+  Mail,
+  Code2,
+  Compass,
+  Workflow,
+  Briefcase,
 } from 'lucide-react';
 import { useAuthStore } from '../../../stores/auth-store';
 import { useUIStore } from '../../../stores/ui-store';
@@ -29,6 +38,9 @@ import {
 import { cn } from '../../../utils/cn';
 
 const productIcons = [Kanban, FolderGit2, CheckSquare, CalendarDays, Users, BarChart3];
+const solutionIcons = [Code2, Compass, Workflow, Briefcase];
+const workspaceIcons = [LayoutDashboard, CheckSquare, FolderGit2, CalendarDays, Users, Layers];
+const companyIcons = [Building2, Workflow, CreditCard, HelpCircle, ShieldCheck, Mail];
 
 export const LandingNavbar: React.FC = () => {
   const location = useLocation();
@@ -70,6 +82,7 @@ export const LandingNavbar: React.FC = () => {
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
+          {/* PRODUCT DROPDOWN */}
           <div className="relative">
             <button
               type="button"
@@ -85,40 +98,45 @@ export const LandingNavbar: React.FC = () => {
               <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', openMenu === 'product' && 'rotate-180')} />
             </button>
             {openMenu === 'product' && (
-              <div className="absolute left-0 top-full z-50 mt-2 w-[34rem] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                <div className="grid grid-cols-2 gap-1">
+              <div className="absolute left-0 top-full z-50 mt-2 w-[34rem] sm:w-[36rem] rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-2xl backdrop-blur-md ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900/95">
+                <div className="grid grid-cols-2 gap-1.5">
                   {productMenu.map((item, index) => {
-                    const Icon = productIcons[index];
+                    const Icon = productIcons[index] || Kanban;
                     return (
                       <Link
                         key={item.to}
                         to={item.to}
-                        className="flex gap-3 rounded-xl p-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                        onClick={() => setOpenMenu(null)}
+                        className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80"
                       >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-300">
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 transition-colors group-hover:bg-primary-100 dark:bg-primary-950/60 dark:text-primary-300 dark:group-hover:bg-primary-900/60">
                           <Icon className="h-4 w-4" />
                         </div>
-                        <span>
-                          <span className="block text-sm font-semibold text-slate-900 dark:text-white">{item.title}</span>
-                          <span className="mt-0.5 block text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                        <div className="min-w-0">
+                          <span className="block text-sm font-semibold text-slate-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+                            {item.title}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-relaxed text-slate-500 line-clamp-2 dark:text-slate-400">
                             {item.description}
                           </span>
-                        </span>
+                        </div>
                       </Link>
                     );
                   })}
                 </div>
                 <Link
                   to="/features"
-                  className="mt-1 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-slate-100 dark:bg-slate-800/70 dark:text-primary-300 dark:hover:bg-slate-800"
+                  onClick={() => setOpenMenu(null)}
+                  className="mt-2 flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-2.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-slate-100 dark:border-slate-800/60 dark:bg-slate-800/70 dark:text-primary-300 dark:hover:bg-slate-800"
                 >
-                  View all features
-                  <ArrowRight className="h-4 w-4" />
+                  <span>View all features &amp; capabilities</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
             )}
           </div>
 
+          {/* SOLUTIONS DROPDOWN */}
           <div className="relative">
             <button
               type="button"
@@ -134,22 +152,45 @@ export const LandingNavbar: React.FC = () => {
               <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', openMenu === 'solutions' && 'rotate-180')} />
             </button>
             {openMenu === 'solutions' && (
-              <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                {solutionTypes.map((item) => (
-                  <Link
-                    key={item.id}
-                    to={`/?type=${item.id}#solutions`}
-                    onClick={() => setOpenMenu(null)}
-                    className="block rounded-xl px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/80"
-                  >
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{item.label}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{item.title}</span>
-                  </Link>
-                ))}
+              <div className="absolute left-0 top-full z-50 mt-2 w-[34rem] sm:w-[36rem] rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-2xl backdrop-blur-md ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900/95">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {solutionTypes.map((item, index) => {
+                    const Icon = solutionIcons[index] || Code2;
+                    return (
+                      <Link
+                        key={item.id}
+                        to={`/?type=${item.id}#solutions`}
+                        onClick={() => setOpenMenu(null)}
+                        className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                      >
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 transition-colors group-hover:bg-primary-100 dark:bg-primary-950/60 dark:text-primary-300 dark:group-hover:bg-primary-900/60">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block text-sm font-semibold text-slate-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+                            {item.label} teams
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-relaxed text-slate-500 line-clamp-2 dark:text-slate-400">
+                            {item.description}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+                <Link
+                  to="/#solutions"
+                  onClick={() => setOpenMenu(null)}
+                  className="mt-2 flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-2.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-slate-100 dark:border-slate-800/60 dark:bg-slate-800/70 dark:text-primary-300 dark:hover:bg-slate-800"
+                >
+                  <span>Explore all team workflows &amp; solutions</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             )}
           </div>
 
+          {/* WORKSPACE DROPDOWN (WHEN SIGNED IN) */}
           {isAuthenticated && (
             <div className="relative">
               <button
@@ -168,30 +209,40 @@ export const LandingNavbar: React.FC = () => {
                 <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', openMenu === 'work' && 'rotate-180')} />
               </button>
               {openMenu === 'work' && (
-                <div className="absolute left-0 top-full z-50 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                  {appNavForSignedIn.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      className={({ isActive }) =>
-                        cn(
-                          'flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium',
-                          isActive
-                            ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300'
-                            : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'
-                        )
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  ))}
-                  <NavLink
-                    to="/workspaces"
-                    className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                <div className="absolute left-0 top-full z-50 mt-2 w-[34rem] sm:w-[36rem] rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-2xl backdrop-blur-md ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900/95">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {appNavForSignedIn.map((item, index) => {
+                      const Icon = workspaceIcons[index] || LayoutDashboard;
+                      return (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          onClick={() => setOpenMenu(null)}
+                          className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                        >
+                          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 transition-colors group-hover:bg-primary-100 dark:bg-primary-950/60 dark:text-primary-300 dark:group-hover:bg-primary-900/60">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-sm font-semibold text-slate-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+                              {item.title}
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-relaxed text-slate-500 line-clamp-2 dark:text-slate-400">
+                              {item.description}
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setOpenMenu(null)}
+                    className="mt-2 flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-2.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-slate-100 dark:border-slate-800/60 dark:bg-slate-800/70 dark:text-primary-300 dark:hover:bg-slate-800"
                   >
-                    <Layers className="h-3.5 w-3.5" />
-                    Workspaces
-                  </NavLink>
+                    <span>Go to active workspace dashboard</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
               )}
             </div>
@@ -214,13 +265,14 @@ export const LandingNavbar: React.FC = () => {
             </NavLink>
           ))}
 
+          {/* COMPANY DROPDOWN */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setOpenMenu(openMenu === 'company' ? null : 'company')}
               className={cn(
                 'inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                ['/about', '/security', '/contact'].includes(location.pathname) || openMenu === 'company'
+                ['/about', '/how-it-works', '/pricing', '/faq', '/security', '/contact'].includes(location.pathname) || openMenu === 'company'
                   ? 'bg-slate-100 text-primary-700 dark:bg-slate-800 dark:text-primary-300'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
               )}
@@ -229,17 +281,40 @@ export const LandingNavbar: React.FC = () => {
               <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', openMenu === 'company' && 'rotate-180')} />
             </button>
             {openMenu === 'company' && (
-              <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                {companyMenu.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="block rounded-xl px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/80"
-                  >
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{item.title}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{item.description}</span>
-                  </Link>
-                ))}
+              <div className="absolute right-0 top-full z-50 mt-2 w-[34rem] sm:w-[36rem] rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-2xl backdrop-blur-md ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900/95">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {companyMenu.map((item, index) => {
+                    const Icon = companyIcons[index] || Building2;
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setOpenMenu(null)}
+                        className="group flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                      >
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 transition-colors group-hover:bg-primary-100 dark:bg-primary-950/60 dark:text-primary-300 dark:group-hover:bg-primary-900/60">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block text-sm font-semibold text-slate-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+                            {item.title}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-relaxed text-slate-500 line-clamp-2 dark:text-slate-400">
+                            {item.description}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+                <Link
+                  to={isAuthenticated ? '/about' : '/register'}
+                  onClick={() => setOpenMenu(null)}
+                  className="mt-2 flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-2.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-slate-100 dark:border-slate-800/60 dark:bg-slate-800/70 dark:text-primary-300 dark:hover:bg-slate-800"
+                >
+                  <span>{isAuthenticated ? 'Learn more about TeamFlow mission' : 'Get started with TeamFlow for free'}</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             )}
           </div>
@@ -302,92 +377,98 @@ export const LandingNavbar: React.FC = () => {
         <div className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-950 lg:hidden">
           <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Product</p>
           <div className="mt-1 mb-3 grid grid-cols-1 gap-1">
-            {productMenu.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                {item.title}
-              </Link>
-            ))}
+            {productMenu.map((item, index) => {
+              const Icon = productIcons[index] || Kanban;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <Icon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                  <span>{item.title}</span>
+                </Link>
+              );
+            })}
           </div>
 
           <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Solutions</p>
-          <div className="mt-1 mb-3 space-y-1">
-            {solutionTypes.map((item) => (
-              <Link
-                key={item.id}
-                to={`/?type=${item.id}#solutions`}
-                className="block rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-
-          <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Pages</p>
-          <div className="mt-1 space-y-1">
-            {marketingNav.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  'block rounded-xl px-3 py-2 text-sm font-medium',
-                  isMarketingActive(item.to)
-                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-300'
-                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-            {companyMenu.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  'block rounded-xl px-3 py-2 text-sm font-medium',
-                  isMarketingActive(item.to)
-                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-300'
-                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
-                )}
-              >
-                {item.title}
-              </Link>
-            ))}
+          <div className="mt-1 mb-3 grid grid-cols-1 gap-1">
+            {solutionTypes.map((item, index) => {
+              const Icon = solutionIcons[index] || Code2;
+              return (
+                <Link
+                  key={item.id}
+                  to={`/?type=${item.id}#solutions`}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <Icon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                  <span>{item.label} teams</span>
+                </Link>
+              );
+            })}
           </div>
 
           {isAuthenticated && (
             <>
-              <p className="mt-4 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Workspace</p>
-              <div className="mt-1 space-y-1">
-                {appNavForSignedIn.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="block rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+              <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Workspace</p>
+              <div className="mt-1 mb-3 grid grid-cols-1 gap-1">
+                {appNavForSignedIn.map((item, index) => {
+                  const Icon = workspaceIcons[index] || LayoutDashboard;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      <Icon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      <span>{item.title}</span>
+                    </Link>
+                  );
+                })}
               </div>
             </>
           )}
 
+          <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Company</p>
+          <div className="mt-1 mb-3 grid grid-cols-1 gap-1">
+            {companyMenu.map((item, index) => {
+              const Icon = companyIcons[index] || Building2;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium',
+                    location.pathname === item.to
+                      ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-300'
+                      : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                  )}
+                >
+                  <Icon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                  <span>{item.title}</span>
+                </Link>
+              );
+            })}
+          </div>
+
           <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
             {isAuthenticated ? (
-              <Link to="/dashboard">
+              <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
                 <Button className="w-full">Open dashboard</Button>
               </Link>
             ) : (
               <>
-                <Link to="/login">
+                <Link to="/login" onClick={() => setMobileOpen(false)}>
                   <Button variant="outline" className="w-full">
                     Sign in
                   </Button>
                 </Link>
-                <Link to="/register">
+                <Link to="/register" onClick={() => setMobileOpen(false)}>
                   <Button className="w-full">Get started</Button>
                 </Link>
               </>

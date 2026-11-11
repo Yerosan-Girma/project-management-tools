@@ -39,7 +39,7 @@ async function main() {
   const adminUser = await prisma.user.create({
     data: {
       name: 'Yerosan Girma',
-      email: 'admin@teamflow.local',
+      email: 'yerosan@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.PLATFORM_ADMIN,
       status: UserStatus.ACTIVE,
@@ -50,7 +50,7 @@ async function main() {
   const alice = await prisma.user.create({
     data: {
       name: 'Yoni Tola',
-      email: 'alice@teamflow.local',
+      email: 'yoni@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.USER,
       status: UserStatus.ACTIVE,
@@ -61,7 +61,7 @@ async function main() {
   const bob = await prisma.user.create({
     data: {
       name: 'Gemachu',
-      email: 'bob@teamflow.local',
+      email: 'gemachu@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.USER,
       status: UserStatus.ACTIVE,
@@ -72,7 +72,7 @@ async function main() {
   const charlie = await prisma.user.create({
     data: {
       name: 'Tesfaye',
-      email: 'charlie@teamflow.local',
+      email: 'tesfaye@teamflow.local',
       passwordHash: defaultPasswordHash,
       platformRole: PlatformRole.USER,
       status: UserStatus.ACTIVE,
@@ -80,7 +80,7 @@ async function main() {
     }
   });
 
-  console.log('👤 Created test users: Yerosan Girma (admin), Yoni Tola (alice), Gemachu (bob), Tesfaye (charlie) (Password: Password123!)');
+  console.log('👤 Created test users: Yerosan Girma (yerosan@teamflow.local), Yoni Tola (yoni@teamflow.local), Gemachu (gemachu@teamflow.local), Tesfaye (tesfaye@teamflow.local) (Password: Password123!)');
 
   // 4. Create Workspace: Acme Corp Engineering
   const acmeWorkspace = await prisma.workspace.create({

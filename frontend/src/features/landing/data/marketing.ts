@@ -1,11 +1,12 @@
 export const marketingNav = [
   { label: 'How it works', to: '/how-it-works' },
-  { label: 'Pricing', to: '/pricing' },
-  { label: 'FAQ', to: '/faq' },
 ] as const;
 
 export const companyMenu = [
   { to: '/about', title: 'About', description: 'Why TeamFlow is built around workspaces and live boards.' },
+  { to: '/how-it-works', title: 'How it works', description: 'Step-by-step tour of boards, workflows, and sprint delivery.' },
+  { to: '/pricing', title: 'Pricing', description: 'Transparent plans for growing teams and organizations.' },
+  { to: '/faq', title: 'FAQ', description: 'Frequently asked questions about workspaces, boards, and roles.' },
   { to: '/security', title: 'Security', description: 'JWT sessions, RBAC, and isolated tenant data.' },
   { to: '/contact', title: 'Contact', description: 'Talk with us about teams, plans, or access.' },
 ] as const;
@@ -63,7 +64,7 @@ export const solutionTypes = [
   {
     id: 'operations',
     label: 'Operations',
-    title: 'Coordinate people, not just tickets',
+    title: 'Coordinate people and deadlines',
     description:
       'Use team directories, calendar deadlines, and notifications so ops work stays visible across the company.',
     highlights: ['Team directory', 'Calendar view', 'Live notifications'],
@@ -79,11 +80,42 @@ export const solutionTypes = [
 ] as const;
 
 export const appNavForSignedIn = [
-  { label: 'Dashboard', to: '/dashboard' },
-  { label: 'My tasks', to: '/my-tasks' },
-  { label: 'Projects', to: '/projects' },
-  { label: 'Calendar', to: '/calendar' },
-  { label: 'Team', to: '/team' },
+  {
+    to: '/dashboard',
+    label: 'Dashboard',
+    title: 'Dashboard',
+    description: 'High-level sprint progress, metrics, and team activity.',
+  },
+  {
+    to: '/my-tasks',
+    label: 'My tasks',
+    title: 'My tasks',
+    description: 'Personal task queue across all assigned projects.',
+  },
+  {
+    to: '/projects',
+    label: 'Projects',
+    title: 'Projects',
+    description: 'Workspace projects, board workflows, and task backlogs.',
+  },
+  {
+    to: '/calendar',
+    label: 'Calendar',
+    title: 'Calendar',
+    description: 'Cross-project milestone deadlines and schedule.',
+  },
+  {
+    to: '/team',
+    label: 'Team',
+    title: 'Team & access',
+    description: 'Manage members, role permissions, and invites.',
+  },
+  {
+    to: '/workspaces',
+    label: 'Workspaces',
+    title: 'Workspaces',
+    description: 'Switch or create isolated team and client workspaces.',
+  },
 ] as const;
 
 export const footerProductLinks = [

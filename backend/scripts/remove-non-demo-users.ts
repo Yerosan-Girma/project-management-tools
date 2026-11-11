@@ -3,6 +3,10 @@ import { PrismaClient, WorkspaceRole } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const demoEmails = [
+  'yerosan@teamflow.local',
+  'yoni@teamflow.local',
+  'gemachu@teamflow.local',
+  'tesfaye@teamflow.local',
   'admin@teamflow.local',
   'alice@teamflow.local',
   'bob@teamflow.local',

@@ -9,11 +9,10 @@ import { createCommentSchema, updateCommentSchema } from './comments.schema';
 const router = Router();
 const controller = new CommentsController();
 
-router.use(authenticate);
-
 // Task-nested comment routes
 router.post(
   '/tasks/:taskId/comments',
+  authenticate,
   requireTaskPermission('task:comments:create', 'taskId'),
   validate({ body: createCommentSchema }),
   asyncHandler(controller.create)
@@ -21,6 +20,7 @@ router.post(
 
 router.get(
   '/tasks/:taskId/comments',
+  authenticate,
   requireTaskPermission('task:comments:read', 'taskId'),
   asyncHandler(controller.listTaskComments)
 );
@@ -28,12 +28,14 @@ router.get(
 // Direct comment actions (Author / Manager checked in service)
 router.patch(
   '/comments/:commentId',
+  authenticate,
   validate({ body: updateCommentSchema }),
   asyncHandler(controller.update)
 );
 
 router.delete(
   '/comments/:commentId',
+  authenticate,
   asyncHandler(controller.delete)
 );
 
