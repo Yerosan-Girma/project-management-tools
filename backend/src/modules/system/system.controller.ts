@@ -18,7 +18,7 @@ export class SystemController {
         timestamp: new Date().toISOString(),
       });
     } catch (error: any) {
-      ApiResponse.error(res, 'System unhealthy', {
+      ApiResponse.error(res, 'System unhealthy', 500, 'INTERNAL_SERVER_ERROR', {
         status: 'error',
         database: 'unhealthy',
         error: error.message,
@@ -40,7 +40,7 @@ export class SystemController {
         environment: env.NODE_ENV,
       });
     } catch (error: any) {
-      ApiResponse.error(res, 'Failed to check email configuration', {
+      ApiResponse.error(res, 'Failed to check email configuration', 500, 'INTERNAL_SERVER_ERROR', {
         error: error.message,
       });
     }
@@ -69,12 +69,12 @@ export class SystemController {
           to: req.body.to || env.SMTP_USER || 'yerosang463@gmail.com',
         });
       } else {
-        ApiResponse.error(res, 'Email failed to send', {
+        ApiResponse.error(res, 'Email failed to send', 500, 'EMAIL_SEND_FAILED', {
           sent: false,
         });
       }
     } catch (error: any) {
-      ApiResponse.error(res, 'Email test failed', {
+      ApiResponse.error(res, 'Email test failed', 500, 'INTERNAL_SERVER_ERROR', {
         error: error.message,
       });
     }
