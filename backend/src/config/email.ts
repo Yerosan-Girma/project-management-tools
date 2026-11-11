@@ -1,11 +1,12 @@
 import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import { MailtrapTransport } from 'mailtrap';
 import { env } from './env';
 import { logger } from '../utils/logger';
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter<any> | null = null;
 
-export function getEmailTransporter(): nodemailer.Transporter {
+export function getEmailTransporter(): Transporter<any> {
   if (transporter) return transporter;
 
   // 1. Prioritize SMTP (e.g. Gmail, Mailtrap Sandbox, or custom SMTP) when user/pass are provided
