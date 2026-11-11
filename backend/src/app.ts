@@ -51,7 +51,7 @@ export function createApp(): Application {
       pinoHttp({
         logger,
         autoLogging: {
-          ignore: (req) => req.url === '/health' || req.url?.startsWith('/api/docs')
+          ignore: (req) => req.url === '/health' || Boolean(req.url?.startsWith('/api/docs'))
         }
       })
     );
