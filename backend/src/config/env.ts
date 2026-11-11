@@ -2,10 +2,13 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-// Automatically load .env from current directory or backend root
-dotenv.config();
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// Load .env files only if NODE_ENV is not already set (e.g., by Render)
+// This ensures production environment variables are not overridden
+if (!process.env.NODE_ENV) {
+  dotenv.config();
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+  dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+}
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

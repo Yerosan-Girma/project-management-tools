@@ -18,9 +18,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
+
   "dependencies": {
     "@prisma/client": "^6.4.1",
     "@socket.io/redis-adapter": "^8.3.0",
