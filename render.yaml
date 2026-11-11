@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: npx prisma db push && node dist/server.js
+    startCommand: npx prisma migrate resolve --applied "20261105192558_init" && npx prisma migrate deploy && node dist/server.js
     healthCheckPath: /health
     autoDeploy: true
     envVars:
