@@ -124,15 +124,11 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
       mailOptions.category = category;
     }
 
-    // Verify transporter before sending
-    await transport.verify();
-    logger.info('✅ Email transporter verified successfully');
-
-    // Add timeout to prevent hanging on slow email servers (increased to 30s for Gmail from cloud platforms)
+    // Send email with 60 second timeout for cloud platforms
     const info = await Promise.race([
       transport.sendMail(mailOptions as any),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), 30000)
+        setTimeout(() => reject(new Error('Email send timeout after 60 seconds')), 60000)
       ),
     ]) as any;
 
@@ -147,7 +143,6 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
     // Reset transporter on connection/auth errors so subsequent attempts can reconnect fresh
     resetEmailTransporter();
     logger.error(`❌ Failed to deliver email to ${Array.isArray(to) ? to.join(', ') : to}: ${error.message}`);
-    logger.error(`❌ Email error details: ${JSON.stringify({ code: error.code, command: error.command, response: error.response, responseCode: error.responseCode })}`);
     return false;
   }
 }
