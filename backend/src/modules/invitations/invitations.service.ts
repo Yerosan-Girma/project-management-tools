@@ -15,10 +15,24 @@ import { NotificationType } from '../../constants/status';
 export class InvitationsService {
   constructor(private readonly invitationsRepo: InvitationsRepository = new InvitationsRepository()) {}
 
-  private updateDeliveryStatus(invitationId: string, emailSent: boolean) {
-    return this.invitationsRepo.updateInvitation(invitationId, {
+  private async updateDeliveryStatus(
+    invitationId: string,
+    emailSent: boolean,
+    errorMessage?: string
+  ) {
+    const updateData: any = {
       deliveryStatus: emailSent ? InvitationDeliveryStatus.SENT : InvitationDeliveryStatus.FAILED,
-    });
+    };
+
+    if (emailSent) {
+      updateData.lastSentAt = new Date();
+      updateData.retryCount = { increment: 1 };
+    } else if (errorMessage) {
+      updateData.emailError = errorMessage;
+      updateData.retryCount = { increment: 1 };
+    }
+
+    return this.invitationsRepo.updateInvitation(invitationId, updateData);
   }
 
   async inviteMember(
@@ -94,8 +108,8 @@ export class InvitationsService {
         },
       });
 
-      const emailSent = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
-      const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent);
+      const { emailSent, errorMessage } = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
+      const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
       logger.info(`📧 Pending invitation refreshed for ${cleanEmail} in workspace ${workspace.name}`);
 
       if (existingUser) {
@@ -141,8 +155,8 @@ export class InvitationsService {
       },
     });
 
-    const emailSent = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(invitation.id, emailSent);
+    const { emailSent, errorMessage } = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
+    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(invitation.id, emailSent, errorMessage);
 
     // 8. If invited user already has an account on TeamFlow, trigger in-app notification immediately
     if (existingUser) {
@@ -162,12 +176,17 @@ export class InvitationsService {
     };
   }
 
-  private async dispatchInvitationEmail(workspaceName: string, email: string, role: string, token: string): Promise<boolean> {
+  private async dispatchInvitationEmail(
+    workspaceName: string,
+    email: string,
+    role: string,
+    token: string
+  ): Promise<{ emailSent: boolean; errorMessage?: string }> {
     const inviteUrl = `${env.FRONTEND_URL}/invitations/${token}`;
     const textContent = `You have been invited to join ${workspaceName} as ${role} on TeamFlow.\n\nClick the link below to accept your invitation and join the team:\n${inviteUrl}\n\nThis invitation link expires in 7 days. If you did not expect this email, you can safely ignore it.`;
 
     try {
-      return await sendEmail({
+      const emailSent = await sendEmail({
         to: email,
         subject: `You've been invited to join ${workspaceName} as ${role} on TeamFlow`,
         text: textContent,
@@ -180,7 +199,7 @@ export class InvitationsService {
           <div style="border-top: 1px solid #f1f5f9; padding-top: 20px;">
             <h2 style="color: #1e293b; font-size: 18px; margin-bottom: 12px;">You've Been Invited!</h2>
             <p style="color: #475569; font-size: 15px; line-height: 1.5; margin-bottom: 16px;">
-              You have been invited to join <strong>${workspaceName}</strong> with the role of 
+              You have been invited to join <strong>${workspaceName}</strong> with the role of
               <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 13px;">${role}</span>.
             </p>
             <p style="color: #475569; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
@@ -202,9 +221,11 @@ export class InvitationsService {
         </div>
       `,
       });
+      return { emailSent };
     } catch (err: any) {
-      logger.warn(`Invitation email send failed: ${err.message}`);
-      return false;
+      const errorMessage = err.message || 'Unknown error';
+      logger.warn(`Invitation email send failed: ${errorMessage}`);
+      return { emailSent: false, errorMessage };
     }
   }
 
@@ -214,12 +235,12 @@ export class InvitationsService {
     email: string,
     projectRole: string,
     token: string
-  ): Promise<boolean> {
+  ): Promise<{ emailSent: boolean; errorMessage?: string }> {
     const inviteUrl = `${env.FRONTEND_URL}/invitations/${token}`;
     const textContent = `You have been invited to collaborate on the project "${projectName}" inside the "${workspaceName}" workspace as a ${projectRole} on TeamFlow.\n\nClick the link below to accept your project invitation and join the board:\n${inviteUrl}\n\nThis invitation link expires in 7 days. If you did not expect this email, you can safely ignore it.`;
 
     try {
-      return await sendEmail({
+      const emailSent = await sendEmail({
         to: email,
         subject: `You've been invited to project "${projectName}" on TeamFlow`,
         text: textContent,
@@ -232,7 +253,7 @@ export class InvitationsService {
           <div style="border-top: 1px solid #f1f5f9; padding-top: 20px;">
             <h2 style="color: #1e293b; font-size: 18px; margin-bottom: 12px;">You've Been Invited to a Project!</h2>
             <p style="color: #475569; font-size: 15px; line-height: 1.5; margin-bottom: 16px;">
-              You have been invited to join the project <strong>${projectName}</strong> inside the <strong>${workspaceName}</strong> workspace with the role of 
+              You have been invited to join the project <strong>${projectName}</strong> inside the <strong>${workspaceName}</strong> workspace with the role of
               <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 13px;">${projectRole}</span>.
             </p>
             <p style="color: #475569; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
@@ -254,9 +275,11 @@ export class InvitationsService {
         </div>
       `,
       });
+      return { emailSent };
     } catch (err: any) {
-      logger.warn(`Project invitation email send failed: ${err.message}`);
-      return false;
+      const errorMessage = err.message || 'Unknown error';
+      logger.warn(`Project invitation email send failed: ${errorMessage}`);
+      return { emailSent: false, errorMessage };
     }
   }
 
@@ -266,15 +289,16 @@ export class InvitationsService {
     email: string,
     projectRole: string,
     projectId: string
-  ) {
+  ): Promise<{ emailSent: boolean; errorMessage?: string }> {
     const projectUrl = `${env.FRONTEND_URL}/projects/${projectId}`;
     const textContent = `You have been added directly to project "${projectName}" inside the "${workspaceName}" workspace as a ${projectRole} on TeamFlow.\n\nOpen your project board now:\n${projectUrl}\n\nSince you are already a member of this workspace, your access has been granted immediately!`;
 
-    return sendEmail({
-      to: email,
-      subject: `You've been added to project "${projectName}" on TeamFlow`,
-      text: textContent,
-      html: `
+    try {
+      const emailSent = await sendEmail({
+        to: email,
+        subject: `You've been added to project "${projectName}" on TeamFlow`,
+        text: textContent,
+        html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 24px;">
             <h1 style="color: #4f46e5; margin: 0; font-size: 24px; font-weight: 700;">TeamFlow</h1>
@@ -283,7 +307,7 @@ export class InvitationsService {
           <div style="border-top: 1px solid #f1f5f9; padding-top: 20px;">
             <h2 style="color: #1e293b; font-size: 18px; margin-bottom: 12px;">You've Been Added to a Project!</h2>
             <p style="color: #475569; font-size: 15px; line-height: 1.5; margin-bottom: 16px;">
-              You have been added to the project <strong>${projectName}</strong> in workspace <strong>${workspaceName}</strong> as a 
+              You have been added to the project <strong>${projectName}</strong> in workspace <strong>${workspaceName}</strong> as a
               <span style="background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 13px;">${projectRole}</span>.
             </p>
             <p style="color: #475569; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
@@ -301,7 +325,13 @@ export class InvitationsService {
           </div>
         </div>
       `,
-    }).catch((err) => logger.warn(`Project added notification email send failed: ${err.message}`));
+      });
+      return { emailSent };
+    } catch (err: any) {
+      const errorMessage = err.message || 'Unknown error';
+      logger.warn(`Project added notification email send failed: ${errorMessage}`);
+      return { emailSent: false, errorMessage };
+    }
   }
 
   async listWorkspaceInvitations(workspaceId: string) {
@@ -443,13 +473,13 @@ export class InvitationsService {
       },
     });
 
-    const emailSent = await this.dispatchInvitationEmail(
+    const { emailSent, errorMessage } = await this.dispatchInvitationEmail(
       invitation.workspace.name,
       invitation.email,
       invitation.role,
       token
     );
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent);
+    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
     logger.info(`📧 Invitation resend processed for ${invitation.email} in workspace ${invitation.workspace.name}`);
     return {
       ...deliveryUpdatedInvitation,
@@ -549,7 +579,7 @@ export class InvitationsService {
           resourceId: projectId,
         });
 
-        const emailSent = await this.dispatchProjectAddedEmail(
+        const { emailSent } = await this.dispatchProjectAddedEmail(
           project.workspace.name,
           project.name,
           existingUser.email,
@@ -609,14 +639,14 @@ export class InvitationsService {
         });
       }
 
-      const emailSent = await this.dispatchProjectInvitationEmail(
+      const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
         project.workspace.name,
         project.name,
         cleanEmail,
         input.role,
         token
       );
-      const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent);
+      const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
 
       logger.info(`📧 Project invitation refreshed for ${cleanEmail} in project ${project.name}`);
       return {
@@ -666,14 +696,14 @@ export class InvitationsService {
       });
     }
 
-    const emailSent = await this.dispatchProjectInvitationEmail(
+    const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
       project.workspace.name,
       project.name,
       cleanEmail,
       input.role,
       token
     );
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(invitation.id, emailSent);
+    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(invitation.id, emailSent, errorMessage);
 
     return {
       ...deliveryUpdatedInvitation,
@@ -720,14 +750,14 @@ export class InvitationsService {
       },
     });
 
-    const emailSent = await this.dispatchProjectInvitationEmail(
+    const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
       invitation.workspace.name,
       invitation.project?.name || 'Project',
       invitation.email,
       invitation.projectRole || 'MEMBER',
       token
     );
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent);
+    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
 
     // If target user exists on platform, trigger in-app notification
     const targetUser = await prisma.user.findUnique({

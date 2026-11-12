@@ -228,6 +228,9 @@ model WorkspaceInvitation {
   token          String                   @unique @db.VarChar(255)
   status         InvitationStatus         @default(PENDING)
   deliveryStatus InvitationDeliveryStatus @default(PENDING)
+  emailError     String?                  @db.Text
+  retryCount     Int                      @default(0)
+  lastSentAt     DateTime?
   expiresAt      DateTime
   respondedAt    DateTime?
   createdAt      DateTime                 @default(now())
