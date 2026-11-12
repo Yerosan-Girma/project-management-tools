@@ -5,63 +5,72 @@ import { env } from './env';
 import { logger } from '../utils/logger';
 
 let transporter: Transporter<any> | null = null;
+let isSimulatedTransport = false;
 
 export function getEmailTransporter(): Transporter<any> {
   if (transporter) return transporter;
 
-  // 1. Prioritize SMTP (e.g. Gmail, Mailtrap Sandbox, or custom SMTP) when user/pass are provided
-  const smtpUser = env.SMTP_USER?.trim();
-  const smtpPass = env.SMTP_PASS?.trim().replace(/\s+/g, '');
-  const smtpHost = env.SMTP_HOST?.trim() || 'smtp.gmail.com';
-  const isGmail = smtpHost.toLowerCase().includes('gmail') || (smtpUser && smtpUser.toLowerCase().includes('@gmail.com'));
+  switch (env.EMAIL_PROVIDER) {
+    case 'smtp': {
+      const smtpUser = env.SMTP_USER?.trim();
+      const smtpPass = env.SMTP_PASS?.trim().replace(/\s+/g, '');
+      if (Boolean(smtpUser) !== Boolean(smtpPass)) {
+        throw new Error('Both SMTP_USER and SMTP_PASS must be configured to send email through SMTP.');
+      }
+      if (!smtpUser || !smtpPass) {
+        throw new Error('SMTP email provider requires SMTP_USER and SMTP_PASS.');
+      }
 
-  logger.info(`🔍 Email Config Check - SMTP_USER: ${smtpUser ? 'SET' : 'NOT SET'}, SMTP_PASS: ${smtpPass ? 'SET' : 'NOT SET'}, SMTP_HOST: ${smtpHost}, MAILTRAP_TOKEN: ${env.MAILTRAP_TOKEN ? 'SET' : 'NOT SET'}`);
-
-  if (smtpUser && smtpPass) {
-    if (isGmail) {
-      // Use port 465 with SSL for better reliability from cloud platforms
+      const port = env.SMTP_PORT;
       transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
+        host: env.SMTP_HOST.trim(),
+        port,
+        secure: port === 465,
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+      logger.info(`📧 SMTP email transport configured via ${env.SMTP_HOST}:${port}`);
+      break;
+    }
+    case 'mailtrap': {
+      if (!env.MAILTRAP_TOKEN) {
+        throw new Error('Mailtrap email provider requires MAILTRAP_TOKEN.');
+      }
+      transporter = nodemailer.createTransport(
+        MailtrapTransport({ token: env.MAILTRAP_TOKEN })
+      );
+      logger.info('📧 Mailtrap Email API Transporter configured successfully');
+      break;
+    }
+    case 'resend': {
+      if (!env.RESEND_API_KEY) {
+        throw new Error('Resend email provider requires RESEND_API_KEY.');
+      }
+      transporter = nodemailer.createTransport({
+        host: 'smtp.resend.com',
         port: 465,
         secure: true,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
+        auth: { user: 'resend', pass: env.RESEND_API_KEY },
       });
-      logger.info(`📧 Gmail Email Transporter configured successfully for ${smtpUser} (port 465, SSL)`);
-    } else {
-      const port = env.SMTP_PORT || 587;
-      const secure = port === 465;
-      transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port,
-        secure,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      });
-      logger.info(`📧 Custom SMTP Email Transporter configured for ${smtpUser} via ${smtpHost}:${port} (secure: ${secure})`);
+      logger.info('📧 Resend SMTP transport configured successfully');
+      break;
     }
-  } else if (env.MAILTRAP_TOKEN) {
-    transporter = nodemailer.createTransport(
-      MailtrapTransport({
-        token: env.MAILTRAP_TOKEN,
-      })
-    );
-    logger.info('📧 Mailtrap Email API Transporter configured successfully');
-  } else {
-    // Development / fallback stream transporter that logs email preview
-    transporter = nodemailer.createTransport({
-      streamTransport: true,
-      newline: 'windows',
-      buffer: true,
-    });
-    logger.warn('⚠️ Email credentials not provided. Emails will be logged to console (SIMULATED MODE). Configure SMTP_USER, SMTP_PASS, SMTP_HOST or MAILTRAP_TOKEN to send real emails.');
+    case 'console': {
+      if (env.NODE_ENV === 'production') {
+        throw new Error('The console email provider cannot be used in production.');
+      }
+      transporter = nodemailer.createTransport({
+        streamTransport: true,
+        newline: 'windows',
+        buffer: true,
+      });
+      isSimulatedTransport = true;
+      logger.warn('⚠️ Console email provider is enabled; messages will not be delivered.');
+      break;
+    }
+  }
+
+  if (!transporter) {
+    throw new Error(`Unsupported email provider: ${env.EMAIL_PROVIDER}`);
   }
 
   return transporter;
@@ -76,6 +85,7 @@ export function resetEmailTransporter(): void {
     }
   }
   transporter = null;
+  isSimulatedTransport = false;
 }
 
 export interface SendEmailOptions {
@@ -100,7 +110,10 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
         .trim();
 
     // Strictly align RFC 5322 From address with authenticated SMTP_USER to avoid DMARC/SPF misalignment and junk delivery
-    const senderAddress = env.SMTP_USER?.trim() || 'yerosang463@gmail.com';
+    const configuredSender = env.EMAIL_FROM.match(/<([^>]+)>/)?.[1] || env.EMAIL_FROM.trim();
+    const senderAddress = env.EMAIL_PROVIDER === 'smtp'
+      ? env.SMTP_USER?.trim() || configuredSender
+      : configuredSender;
     const senderName = 'TeamFlow';
 
     const mailOptions: Record<string, any> = {
@@ -124,20 +137,23 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
       mailOptions.category = category;
     }
 
-    // Send email with 60 second timeout for cloud platforms
-    const info = await Promise.race([
-      transport.sendMail(mailOptions as any),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Email send timeout after 60 seconds')), 60000)
-      ),
-    ]) as any;
-
-    if (info && (info as any).message) {
-      // In stream transport mode, output simulated email
-      logger.info(`📨 [SIMULATED EMAIL] To: ${Array.isArray(to) ? to.join(', ') : to} | Subject: "${subject}"`);
-    } else {
-      logger.info(`✉️ Email successfully dispatched to: ${Array.isArray(to) ? to.join(', ') : to} (MessageId: ${info?.messageId || 'ok'})`);
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => reject(new Error('Email send timeout after 60 seconds')), 60000);
+    });
+    let info: any;
+    try {
+      info = await Promise.race([transport.sendMail(mailOptions as any), timeout]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     }
+
+    if (isSimulatedTransport) {
+      logger.warn(`📨 [SIMULATED EMAIL NOT SENT] To: ${Array.isArray(to) ? to.join(', ') : to} | Subject: "${subject}"`);
+      return false;
+    }
+
+    logger.info(`✉️ Email successfully dispatched to: ${Array.isArray(to) ? to.join(', ') : to} (MessageId: ${info?.messageId || 'ok'})`);
     return true;
   } catch (error: any) {
     // Reset transporter on connection/auth errors so subsequent attempts can reconnect fresh

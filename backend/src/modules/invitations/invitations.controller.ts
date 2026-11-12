@@ -11,7 +11,11 @@ export class InvitationsController {
       req.user!.id,
       req.body
     );
-    ApiResponse.created(res, 'Invitation sent successfully.', invitation);
+    ApiResponse.created(
+      res,
+      invitation.emailSent ? 'Invitation email sent successfully.' : 'Invitation created, but email delivery failed.',
+      invitation
+    );
   };
 
   listWorkspaceInvitations = async (req: Request, res: Response): Promise<void> => {
@@ -54,7 +58,11 @@ export class InvitationsController {
       req.params.invitationId,
       req.user!.id
     );
-    ApiResponse.success(res, 'Invitation email resent successfully.', invitation);
+    ApiResponse.success(
+      res,
+      invitation.emailSent ? 'Invitation email resent successfully.' : 'Invitation refreshed, but email delivery failed.',
+      invitation
+    );
   };
 
   getMyPendingInvitations = async (req: Request, res: Response): Promise<void> => {
@@ -72,7 +80,11 @@ export class InvitationsController {
       ApiResponse.success(res, (result as any).message || 'Member added to project.', result);
       return;
     }
-    ApiResponse.created(res, 'Project invitation sent successfully.', result);
+    ApiResponse.created(
+      res,
+      result.emailSent ? 'Project invitation email sent successfully.' : 'Project invitation created, but email delivery failed.',
+      result
+    );
   };
 
   listProjectInvitations = async (req: Request, res: Response): Promise<void> => {
@@ -86,7 +98,13 @@ export class InvitationsController {
       req.params.invitationId,
       req.user!.id
     );
-    ApiResponse.success(res, 'Project invitation email resent successfully.', invitation);
+    ApiResponse.success(
+      res,
+      invitation.emailSent
+        ? 'Project invitation email resent successfully.'
+        : 'Project invitation refreshed, but email delivery failed.',
+      invitation
+    );
   };
 
   cancelProjectInvitation = async (req: Request, res: Response): Promise<void> => {

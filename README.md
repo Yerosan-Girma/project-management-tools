@@ -250,11 +250,9 @@ flowchart LR
    - `REFRESH_TOKEN_EXPIRES_IN`: `7d`
    - `APP_URL`: `https://<your-render-service>.onrender.com`
    - `FRONTEND_URL`: `https://<your-vercel-app>.vercel.app`
-   - `SMTP_HOST`: `smtp.gmail.com`
-   - `SMTP_PORT`: `587`
-   - `SMTP_USER`: `<Your Email Address>`
-   - `SMTP_PASS`: `<Your SMTP App Password>`
-   - `EMAIL_FROM`: `TeamFlow <notifications@yourdomain.com>`
+   - Set `EMAIL_PROVIDER` to `mailtrap`, `resend`, or `smtp`, then configure that provider's credentials. `console` is for local development only and does not deliver email.
+   - For Mailtrap, set `MAILTRAP_TOKEN`; for Resend, set `RESEND_API_KEY`; for SMTP, set `SMTP_USER`, `SMTP_PASS`, `SMTP_HOST`, and `SMTP_PORT`.
+   - Set `EMAIL_FROM` to a sender address verified with the selected provider. Gmail SMTP is not available from some cloud platforms, including Render.
 5. Click **Create Web Service**. Verify health status at `https://<your-render-service>.onrender.com/health`.
 
 ### Step 3: Deploy Frontend to Vercel

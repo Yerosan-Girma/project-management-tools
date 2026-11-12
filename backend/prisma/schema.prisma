@@ -58,6 +58,13 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum InvitationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  RETRYING
+}
+
 enum NotificationType {
   WORKSPACE_INVITATION
   WORKSPACE_MEMBER_JOINED
@@ -211,18 +218,19 @@ model WorkspaceMember {
 }
 
 model WorkspaceInvitation {
-  id          String           @id @default(uuid()) @db.Uuid
-  workspaceId String           @db.Uuid
-  projectId   String?          @db.Uuid
-  inviterId   String           @db.Uuid
-  email       String           @db.VarChar(255)
-  role        WorkspaceRole    @default(MEMBER)
-  projectRole ProjectRole?
-  token       String           @unique @db.VarChar(255)
-  status      InvitationStatus @default(PENDING)
-  expiresAt   DateTime
-  respondedAt DateTime?
-  createdAt   DateTime         @default(now())
+  id             String                   @id @default(uuid()) @db.Uuid
+  workspaceId    String                   @db.Uuid
+  projectId      String?                  @db.Uuid
+  inviterId      String                   @db.Uuid
+  email          String                   @db.VarChar(255)
+  role           WorkspaceRole            @default(MEMBER)
+  projectRole    ProjectRole?
+  token          String                   @unique @db.VarChar(255)
+  status         InvitationStatus         @default(PENDING)
+  deliveryStatus InvitationDeliveryStatus @default(PENDING)
+  expiresAt      DateTime
+  respondedAt    DateTime?
+  createdAt      DateTime                 @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -233,6 +241,7 @@ model WorkspaceInvitation {
   @@index([email])
   @@index([token])
   @@index([status])
+  @@index([deliveryStatus])
   @@map("workspace_invitations")
 }
 

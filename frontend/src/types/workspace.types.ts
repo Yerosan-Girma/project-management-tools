@@ -32,6 +32,8 @@ export interface Workspace {
 
 export interface WorkspaceInvitation {
   id: string;
+  emailSent?: boolean;
+  deliveryStatus?: 'PENDING' | 'SENT' | 'FAILED' | 'RETRYING';
   workspaceId: string;
   projectId?: string | null;
   email: string;
