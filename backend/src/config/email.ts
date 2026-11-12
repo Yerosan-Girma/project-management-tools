@@ -19,14 +19,17 @@ export function getEmailTransporter(): Transporter<any> {
 
   if (smtpUser && smtpPass) {
     if (isGmail) {
+      // Use port 465 with SSL for better reliability from cloud platforms
       transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
       });
-      logger.info(`📧 Gmail Email Transporter configured successfully for ${smtpUser}`);
+      logger.info(`📧 Gmail Email Transporter configured successfully for ${smtpUser} (port 465, SSL)`);
     } else {
       const port = env.SMTP_PORT || 587;
       const secure = port === 465;
@@ -121,11 +124,11 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
       mailOptions.category = category;
     }
 
-    // Add timeout to prevent hanging on slow email servers
+    // Add timeout to prevent hanging on slow email servers (increased to 30s for Gmail from cloud platforms)
     const info = await Promise.race([
       transport.sendMail(mailOptions as any),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Email send timeout after 10 seconds')), 10000)
+        setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), 30000)
       ),
     ]) as any;
 

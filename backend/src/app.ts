@@ -31,6 +31,10 @@ import systemRoutes from './modules/system/system.routes';
 export function createApp(): Application {
   const app = express();
 
+  // 0. Trust proxy headers for Render/Cloudflare (required for rate limiter to work correctly)
+  // In production, trust the proxy chain (Render + Cloudflare)
+  app.set('trust proxy', env.NODE_ENV === 'production' ? 2 : false);
+
   // 1. Security HTTP Headers
   app.use(
     helmet({

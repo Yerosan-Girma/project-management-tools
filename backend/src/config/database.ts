@@ -11,7 +11,13 @@ const prismaClientSingleton = () => {
             { emit: 'stdout', level: 'error' },
             { emit: 'stdout', level: 'warn' }
           ]
-        : [{ emit: 'stdout', level: 'error' }]
+        : [{ emit: 'stdout', level: 'error' }],
+    // Connection pool settings optimized for Render/PostgreSQL
+    datasources: {
+      db: {
+        url: env.DATABASE_URL
+      }
+    }
   });
 };
 
