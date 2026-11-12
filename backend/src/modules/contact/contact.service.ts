@@ -132,6 +132,10 @@ export class ContactService {
         text: adminText,
         html: adminHtml,
         category: 'contact_admin_notification',
+      }).then((result) => {
+        if (!result.emailSent) {
+          logger.warn(`Could not dispatch admin notification email to ${adminEmail}: ${result.errorMessage}`);
+        }
       })
     );
 
@@ -160,8 +164,10 @@ export class ContactService {
         </div>
       `,
       category: 'contact_user_confirmation',
-    }).catch((err) => {
-      logger.warn(`Could not dispatch user confirmation email: ${err.message}`);
+    }).then((result) => {
+      if (!result.emailSent) {
+        logger.warn(`Could not dispatch user confirmation email: ${result.errorMessage}`);
+      }
     });
 
     await Promise.allSettled([...emailPromises, userConfirmationPromise]);

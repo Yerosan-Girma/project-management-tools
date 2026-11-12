@@ -1,10 +1,11 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
-import { MailtrapTransport } from 'mailtrap';
+import { MailtrapClient } from 'mailtrap';
 import { env } from './env';
 import { logger } from '../utils/logger';
 
 let transporter: Transporter<any> | null = null;
+let mailtrapClient: MailtrapClient | null = null;
 let isSimulatedTransport = false;
 
 export function getEmailTransporter(): Transporter<any> {
@@ -35,10 +36,11 @@ export function getEmailTransporter(): Transporter<any> {
       if (!env.MAILTRAP_TOKEN) {
         throw new Error('Mailtrap email provider requires MAILTRAP_TOKEN.');
       }
-      transporter = nodemailer.createTransport(
-        MailtrapTransport({ token: env.MAILTRAP_TOKEN })
-      );
-      logger.info('📧 Mailtrap Email API Transporter configured successfully');
+      // Use Mailtrap SDK for proper API integration
+      mailtrapClient = new MailtrapClient({
+        token: env.MAILTRAP_TOKEN,
+      });
+      logger.info('📧 Mailtrap Email API Client configured successfully');
       break;
     }
     case 'resend': {
@@ -69,11 +71,12 @@ export function getEmailTransporter(): Transporter<any> {
     }
   }
 
-  if (!transporter) {
+  // For mailtrap, we don't use nodemailer transporter
+  if (env.EMAIL_PROVIDER !== 'mailtrap' && !transporter) {
     throw new Error(`Unsupported email provider: ${env.EMAIL_PROVIDER}`);
   }
 
-  return transporter;
+  return transporter!;
 }
 
 export function resetEmailTransporter(): void {
@@ -85,6 +88,7 @@ export function resetEmailTransporter(): void {
     }
   }
   transporter = null;
+  mailtrapClient = null;
   isSimulatedTransport = false;
 }
 
@@ -96,8 +100,49 @@ export interface SendEmailOptions {
   category?: string;
 }
 
-export async function sendEmail({ to, subject, text, html, category }: SendEmailOptions): Promise<boolean> {
+export async function sendEmail({ to, subject, text, html, category }: SendEmailOptions): Promise<{ emailSent: boolean; errorMessage?: string }> {
   try {
+    // Handle Mailtrap API using SDK
+    if (env.EMAIL_PROVIDER === 'mailtrap') {
+      if (!mailtrapClient) {
+        mailtrapClient = new MailtrapClient({ token: env.MAILTRAP_TOKEN! });
+      }
+
+      const configuredSender = env.EMAIL_FROM.match(/<([^>]+)>/)?.[1] || env.EMAIL_FROM.trim();
+      const senderName = 'TeamFlow';
+
+      const plainText =
+        text ||
+        html
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const recipients = Array.isArray(to) ? to.map(email => ({ email })) : [{ email: to }];
+
+      const mailOptions: any = {
+        from: {
+          email: configuredSender,
+          name: senderName,
+        },
+        to: recipients,
+        subject,
+        text: plainText,
+        html,
+      };
+
+      if (category) {
+        mailOptions.category = category;
+      }
+
+      const response = await mailtrapClient.send(mailOptions);
+
+      logger.info(`✉️ Email successfully dispatched via Mailtrap to: ${Array.isArray(to) ? to.join(', ') : to} (MessageIds: ${response.message_ids?.join(', ') || 'ok'})`);
+      return { emailSent: true };
+    }
+
+    // Handle other providers using nodemailer
     const transport = getEmailTransporter();
 
     // Auto-generate plain-text fallback if text is not provided to ensure high deliverability and avoid spam classification
@@ -150,15 +195,16 @@ export async function sendEmail({ to, subject, text, html, category }: SendEmail
 
     if (isSimulatedTransport) {
       logger.warn(`📨 [SIMULATED EMAIL NOT SENT] To: ${Array.isArray(to) ? to.join(', ') : to} | Subject: "${subject}"`);
-      return false;
+      return { emailSent: false };
     }
 
     logger.info(`✉️ Email successfully dispatched to: ${Array.isArray(to) ? to.join(', ') : to} (MessageId: ${info?.messageId || 'ok'})`);
-    return true;
+    return { emailSent: true };
   } catch (error: any) {
     // Reset transporter on connection/auth errors so subsequent attempts can reconnect fresh
     resetEmailTransporter();
-    logger.error(`❌ Failed to deliver email to ${Array.isArray(to) ? to.join(', ') : to}: ${error.message}`);
-    return false;
+    const errorMessage = error.message || 'Unknown error';
+    logger.error(`❌ Failed to deliver email to ${Array.isArray(to) ? to.join(', ') : to}: ${errorMessage}`);
+    return { emailSent: false, errorMessage };
   }
 }

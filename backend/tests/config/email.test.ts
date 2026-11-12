@@ -28,21 +28,23 @@ describe('Email delivery configuration', () => {
   });
 
   it('does not report simulated email as delivered', async () => {
-    await expect(sendEmail({
+    const result = await sendEmail({
       to: 'invitee@example.com',
       subject: 'Invitation',
       html: '<p>Join the workspace</p>',
-    })).resolves.toBe(false);
+    });
+    expect(result.emailSent).toBe(false);
   });
 
   it('does not simulate email in production when no provider is configured', async () => {
     env.NODE_ENV = 'production';
     env.EMAIL_PROVIDER = 'smtp';
 
-    await expect(sendEmail({
+    const result = await sendEmail({
       to: 'invitee@example.com',
       subject: 'Invitation',
       html: '<p>Join the workspace</p>',
-    })).resolves.toBe(false);
+    });
+    expect(result.emailSent).toBe(false);
   });
 });

@@ -18,7 +18,10 @@ export class EmailJob {
       const email = EmailJob.queue.shift();
       if (email) {
         try {
-          await sendEmail(email);
+          const result = await sendEmail(email);
+          if (!result.emailSent) {
+            logger.error(`❌ Background email delivery failed: ${result.errorMessage}`);
+          }
         } catch (error: any) {
           logger.error(`❌ Background email delivery failed: ${error.message}`);
         }

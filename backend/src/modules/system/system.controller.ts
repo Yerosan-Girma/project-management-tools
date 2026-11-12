@@ -63,7 +63,7 @@ export class SystemController {
         `,
       });
 
-      if (result) {
+      if (result.emailSent) {
         ApiResponse.success(res, 'Email sent successfully', {
           sent: true,
           to: req.body.to || env.SMTP_USER || 'yerosang463@gmail.com',
@@ -71,6 +71,7 @@ export class SystemController {
       } else {
         ApiResponse.error(res, 'Email failed to send', 500, 'EMAIL_SEND_FAILED', {
           sent: false,
+          error: result.errorMessage,
         });
       }
     } catch (error: any) {

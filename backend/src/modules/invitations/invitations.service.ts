@@ -186,7 +186,7 @@ export class InvitationsService {
     const textContent = `You have been invited to join ${workspaceName} as ${role} on TeamFlow.\n\nClick the link below to accept your invitation and join the team:\n${inviteUrl}\n\nThis invitation link expires in 7 days. If you did not expect this email, you can safely ignore it.`;
 
     try {
-      const emailSent = await sendEmail({
+      const result = await sendEmail({
         to: email,
         subject: `You've been invited to join ${workspaceName} as ${role} on TeamFlow`,
         text: textContent,
@@ -221,7 +221,7 @@ export class InvitationsService {
         </div>
       `,
       });
-      return { emailSent };
+      return result;
     } catch (err: any) {
       const errorMessage = err.message || 'Unknown error';
       logger.warn(`Invitation email send failed: ${errorMessage}`);
@@ -240,7 +240,7 @@ export class InvitationsService {
     const textContent = `You have been invited to collaborate on the project "${projectName}" inside the "${workspaceName}" workspace as a ${projectRole} on TeamFlow.\n\nClick the link below to accept your project invitation and join the board:\n${inviteUrl}\n\nThis invitation link expires in 7 days. If you did not expect this email, you can safely ignore it.`;
 
     try {
-      const emailSent = await sendEmail({
+      const result = await sendEmail({
         to: email,
         subject: `You've been invited to project "${projectName}" on TeamFlow`,
         text: textContent,
@@ -275,7 +275,7 @@ export class InvitationsService {
         </div>
       `,
       });
-      return { emailSent };
+      return result;
     } catch (err: any) {
       const errorMessage = err.message || 'Unknown error';
       logger.warn(`Project invitation email send failed: ${errorMessage}`);
@@ -294,7 +294,7 @@ export class InvitationsService {
     const textContent = `You have been added directly to project "${projectName}" inside the "${workspaceName}" workspace as a ${projectRole} on TeamFlow.\n\nOpen your project board now:\n${projectUrl}\n\nSince you are already a member of this workspace, your access has been granted immediately!`;
 
     try {
-      const emailSent = await sendEmail({
+      const result = await sendEmail({
         to: email,
         subject: `You've been added to project "${projectName}" on TeamFlow`,
         text: textContent,
@@ -326,7 +326,7 @@ export class InvitationsService {
         </div>
       `,
       });
-      return { emailSent };
+      return result;
     } catch (err: any) {
       const errorMessage = err.message || 'Unknown error';
       logger.warn(`Project added notification email send failed: ${errorMessage}`);

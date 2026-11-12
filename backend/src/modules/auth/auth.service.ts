@@ -129,6 +129,10 @@ export class AuthService {
         <p><a href="${verifyUrl}">${verifyUrl}</a></p>
         <p>This link expires in 24 hours.</p>
       `
+    }).then((result) => {
+      if (!result.emailSent) {
+        logger.warn(`Email send failed: ${result.errorMessage}`);
+      }
     }).catch((err) => logger.warn(`Email send failed: ${err.message}`));
 
     // Process pending invitation if inviteToken is provided or if pending invitation exists for this email
@@ -629,6 +633,10 @@ export class AuthService {
         <p><a href="${resetUrl}">${resetUrl}</a></p>
         <p>This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
       `
+    }).then((result) => {
+      if (!result.emailSent) {
+        logger.warn(`Password reset email failed: ${result.errorMessage}`);
+      }
     }).catch((err) => logger.warn(`Password reset email failed: ${err.message}`));
 
     return true;
