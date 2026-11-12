@@ -58,7 +58,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     try {
       const created = await workspaceService.inviteMember(workspaceId, data.email, data.role as WorkspaceRole);
       const inviteUrl = created?.token ? `${window.location.origin}/invitations/${created.token}` : null;
-      const emailSent = (created as any)?.emailSent !== false;
+      const emailSent = created.emailSent === true;
 
       setInviteResult({
         email: data.email,
@@ -94,7 +94,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={inviteResult ? 'Invitation Dispatched' : 'Invite Team Member'}
+      title={inviteResult ? 'Invitation Created' : 'Invite Team Member'}
       description={
         inviteResult
           ? 'Collaborator invitation details and direct link.'

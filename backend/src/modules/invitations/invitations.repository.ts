@@ -1,5 +1,11 @@
 import { prisma } from '../../config/database';
-import { WorkspaceInvitation, InvitationStatus, WorkspaceRole, ProjectRole } from '@prisma/client';
+import {
+  WorkspaceInvitation,
+  InvitationDeliveryStatus,
+  InvitationStatus,
+  WorkspaceRole,
+  ProjectRole,
+} from '@prisma/client';
 
 export class InvitationsRepository {
   async createInvitation(data: {
@@ -86,6 +92,7 @@ export class InvitationsRepository {
       token?: string;
       expiresAt?: Date;
       status?: InvitationStatus;
+      deliveryStatus?: InvitationDeliveryStatus;
     }
   ) {
     return prisma.workspaceInvitation.update({
@@ -190,19 +197,14 @@ export class InvitationsRepository {
           select: { id: true },
         });
 
-        for (const proj of workspaceProjects) {
-          await tx.projectMember.upsert({
-            where: {
-              projectId_userId: { projectId: proj.id, userId },
-            },
-            create: {
-              projectId: proj.id,
-              userId,
-              role: role === WorkspaceRole.ADMIN ? 'MANAGER' : 'MEMBER',
-            },
-            update: {},
-          });
-        }
+        await tx.projectMember.createMany({
+          data: workspaceProjects.map((project) => ({
+            projectId: project.id,
+            userId,
+            role: role === WorkspaceRole.ADMIN ? 'MANAGER' : 'MEMBER',
+          })),
+          skipDuplicates: true,
+        });
       }
 
       return {

@@ -132,11 +132,9 @@ export const ProjectDetailPage: React.FC = () => {
     if (!projectId) return;
     try {
       setIsLoading(true);
-      const [proj, boardsData, tasksData, invData] = await Promise.all([
+      const [proj, boardsData] = await Promise.all([
         projectService.getProject(projectId),
         boardService.getProjectBoards(projectId),
-        taskService.getProjectTasks(projectId),
-        projectService.getProjectInvitations(projectId).catch(() => []),
       ]);
 
       setProject(proj);
@@ -147,11 +145,6 @@ export const ProjectDetailPage: React.FC = () => {
       setTargetDate(proj.targetDate ? proj.targetDate.slice(0, 10) : '');
       setMembers(proj.members || []);
       setBoards(boardsData);
-      setProjectInvitations(invData);
-      const parsedTasks: Task[] = Array.isArray(tasksData)
-        ? tasksData
-        : (tasksData as any)?.items || [];
-      setTasks(parsedTasks);
 
       // Load workspace members for the Add Member modal
       if (proj.workspaceId) {
@@ -165,6 +158,22 @@ export const ProjectDetailPage: React.FC = () => {
     }
   }, [projectId]);
 
+  const loadProjectTasks = useCallback(async () => {
+    if (!projectId) return;
+    const tasksData = await taskService.getProjectTasks(projectId);
+    const parsedTasks: Task[] = Array.isArray(tasksData)
+      ? tasksData
+      : (tasksData as any)?.items || [];
+    setTasks(parsedTasks);
+  }, [projectId]);
+
+  const refreshProjectData = useCallback(async () => {
+    await loadProjectData();
+    if (currentTab === 'list') {
+      await loadProjectTasks();
+    }
+  }, [currentTab, loadProjectData, loadProjectTasks]);
+
   useEffect(() => {
     loadProjectData();
   }, [loadProjectData]);
@@ -172,20 +181,16 @@ export const ProjectDetailPage: React.FC = () => {
   // Load tab-specific data on tab switch
   useEffect(() => {
     if (!projectId) return;
-    if (currentTab === 'overview') {
+    if (currentTab === 'members' || isAddMemberOpen) {
+      projectService.getProjectInvitations(projectId).then(setProjectInvitations).catch(() => {});
+    } else if (currentTab === 'overview') {
       projectService.getProjectOverview(projectId).then(setOverview).catch(() => {});
     } else if (currentTab === 'activity') {
       projectService.getProjectActivity(projectId).then(setActivities).catch(() => {});
-    } else if (currentTab === 'list' || currentTab === 'board') {
-      taskService
-        .getProjectTasks(projectId)
-        .then((res) => {
-          const parsed = Array.isArray(res) ? res : (res as any)?.items || [];
-          setTasks(parsed);
-        })
-        .catch(() => {});
+    } else if (currentTab === 'list') {
+      loadProjectTasks().catch(() => {});
     }
-  }, [projectId, currentTab]);
+  }, [projectId, currentTab, isAddMemberOpen, loadProjectTasks]);
 
   const handleTabChange = (tabId: string) => {
     setSearchParams({ tab: tabId });
@@ -290,25 +295,31 @@ export const ProjectDetailPage: React.FC = () => {
       );
       if ((res as any)?.directAdded) {
         toast.success(`User directly added to project!`, {
-          description: `${inviteEmail} is already a workspace member and has been granted instant project access.`,
+          description: (res as any)?.emailSent === true
+            ? `${inviteEmail} has project access, and an email notification was sent.`
+            : `${inviteEmail} has project access. The email notification could not be sent.`,
         });
         loadProjectData();
         setIsAddMemberOpen(false);
         setInviteEmail('');
       } else {
         const inviteUrl = res?.token ? `${window.location.origin}/invitations/${res.token}` : null;
-        const emailSent = (res as any)?.emailSent ?? true;
+        const emailSent = res?.emailSent === true;
         setInviteResult({
           email: inviteEmail.trim(),
           role: inviteEmailRole,
           inviteUrl,
           emailSent,
         });
-        toast.success(`Project invitation created for ${inviteEmail}`, {
-          description: emailSent
-            ? 'Invitation email dispatched and in-app notification delivered!'
-            : 'Invitation link generated. You can copy and share it directly.',
-        });
+        if (emailSent) {
+          toast.success(`Project invitation created for ${inviteEmail}`, {
+            description: 'Invitation email dispatched.',
+          });
+        } else {
+          toast.warning(`Project invitation created for ${inviteEmail}`, {
+            description: 'The email could not be sent. Copy and share the invitation link directly.',
+          });
+        }
         const updatedInvs = await projectService.getProjectInvitations(project.id).catch(() => []);
         setProjectInvitations(updatedInvs);
       }
@@ -324,9 +335,15 @@ export const ProjectDetailPage: React.FC = () => {
     try {
       setResendingInviteId(invitationId);
       const updated = await projectService.resendProjectInvitation(project.id, invitationId);
-      toast.success(`Invitation email resent to ${email}!`, {
-        description: 'A refreshed 7-day link was sent to their email.',
-      });
+      if (updated.emailSent) {
+        toast.success(`Invitation email resent to ${email}!`, {
+          description: 'A refreshed 7-day link was sent to their email.',
+        });
+      } else {
+        toast.warning(`Invitation link refreshed for ${email}`, {
+          description: 'The email could not be sent. Copy and share the refreshed invitation link.',
+        });
+      }
       setProjectInvitations((prev) =>
         prev.map((i) => (i.id === invitationId ? updated : i))
       );
@@ -557,6 +574,7 @@ export const ProjectDetailPage: React.FC = () => {
         <KanbanBoard
           projectId={project.id}
           projectKey={project.key}
+          projectBoards={boards}
           projectMembers={members}
           isReadOnly={isViewer}
         />
@@ -1098,7 +1116,7 @@ export const ProjectDetailPage: React.FC = () => {
           columns={columns}
           defaultColumnId={createTaskColumnId}
           projectMembers={members}
-          onCreated={loadProjectData}
+          onCreated={refreshProjectData}
         />
       )}
 
@@ -1113,8 +1131,8 @@ export const ProjectDetailPage: React.FC = () => {
           }}
           columns={columns}
           projectMembers={members}
-          onTaskUpdated={loadProjectData}
-          onTaskDeleted={loadProjectData}
+          onTaskUpdated={refreshProjectData}
+          onTaskDeleted={refreshProjectData}
         />
       )}
 

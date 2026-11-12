@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -30,6 +30,7 @@ import { Button } from '../../../components/ui/Button';
 export interface KanbanBoardProps {
   projectId: string;
   projectKey: string;
+  projectBoards?: Board[];
   projectMembers?: ProjectMember[];
   isReadOnly?: boolean;
 }
@@ -37,6 +38,7 @@ export interface KanbanBoardProps {
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   projectId,
   projectKey,
+  projectBoards,
   projectMembers = [],
   isReadOnly = false,
 }) => {
@@ -58,6 +60,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [columnName, setColumnName] = useState('');
   const [columnColor, setColumnColor] = useState('#6366f1');
   const [columnLimit, setColumnLimit] = useState<number | undefined>();
+  const initialBoards = useRef(projectBoards);
 
   // DND Sensors with 5px distance constraint to prevent accidental drags on clicks
   const sensors = useSensors(
@@ -73,14 +76,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     try {
       setIsLoading(true);
       const [boardsData, tasksData] = await Promise.all([
-        boardService.getProjectBoards(projectId),
+        initialBoards.current
+          ? Promise.resolve(initialBoards.current)
+          : boardService.getProjectBoards(projectId),
         taskService.getProjectTasks(projectId),
       ]);
+      initialBoards.current = undefined;
 
       const primaryBoard = boardsData[0] || null;
       setBoard(primaryBoard);
       if (primaryBoard) {
-        setColumns(primaryBoard.columns?.sort((a, b) => a.position - b.position) || []);
+        setColumns([...(primaryBoard.columns || [])].sort((a, b) => a.position - b.position));
       }
       const safeTasksList: Task[] = Array.isArray(tasksData)
         ? tasksData

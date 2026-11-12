@@ -147,9 +147,15 @@ export const TeamPage: React.FC = () => {
     try {
       setResendingInviteId(invitationId);
       const updated = await workspaceService.resendInvitation(currentWorkspace.id, invitationId);
-      toast.success(`Invitation email resent to ${email}!`, {
-        description: 'A refreshed 7-day invitation link has been dispatched to their inbox.',
-      });
+      if (updated.emailSent) {
+        toast.success(`Invitation email resent to ${email}!`, {
+          description: 'A refreshed 7-day invitation link has been dispatched to their inbox.',
+        });
+      } else {
+        toast.warning(`Invitation link refreshed for ${email}`, {
+          description: 'The email could not be sent. Copy and share the refreshed invitation link.',
+        });
+      }
       setInvitations((prev) =>
         prev.map((i) => (i.id === invitationId ? updated : i))
       );

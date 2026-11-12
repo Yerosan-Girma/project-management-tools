@@ -31,7 +31,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional().transform((val) => (val ? val.trim().replace(/\s+/g, '') : undefined)),
   MAILTRAP_TOKEN: z.string().optional(),
-  EMAIL_FROM: z.string().default('TeamFlow <yerosang463@gmail.com>'),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_PROVIDER: z.enum(['smtp', 'mailtrap', 'resend', 'console']).default('smtp'),
+  EMAIL_FROM: z.string().default('TeamFlow <noreply@teamflow.app>'),
 
   STORAGE_ENDPOINT: z.string().optional(),
   STORAGE_BUCKET: z.string().default('teamflow-attachments'),
