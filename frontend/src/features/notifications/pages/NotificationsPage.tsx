@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
   CheckCheck,
@@ -20,49 +21,71 @@ import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 
 export const NotificationsPage: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const res = await notificationService.getNotifications({
+  const { data: notificationsData, isLoading } = useQuery({
+    queryKey: ['notifications', filter],
+    queryFn: () =>
+      notificationService.getNotifications({
         unreadOnly: filter === 'unread',
-      });
-      setNotifications(res.items || []);
-    } catch {
-      toast.error('Failed to load notifications');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filter]);
+      }),
+    staleTime: 1000 * 30,
+  });
 
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+  const notifications: Notification[] = notificationsData?.items || [];
 
-  const handleMarkAllRead = async () => {
-    try {
-      await notificationService.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const markAllReadMutation = useMutation({
+    mutationFn: () => notificationService.markAllAsRead(),
+    onSuccess: () => {
+      queryClient.setQueryData(['notifications', 'all'], (old: any) =>
+        old ? { ...old, items: old.items?.map((n: Notification) => ({ ...n, isRead: true })) } : old
+      );
+      queryClient.setQueryData(['notifications', 'unread'], (old: any) =>
+        old ? { ...old, items: [] } : old
+      );
       toast.success('All notifications marked as read');
-    } catch {
-      toast.error('Failed to mark all as read');
-    }
+    },
+    onError: () => toast.error('Failed to mark all as read'),
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: (notification: Notification) => notificationService.markAsRead(notification.id),
+    onMutate: async (notification) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      queryClient.setQueriesData({ queryKey: ['notifications'] }, (old: any) =>
+        old
+          ? {
+              ...old,
+              items: old.items?.map((n: Notification) =>
+                n.id === notification.id ? { ...n, isRead: true } : n
+              ),
+            }
+          : old
+      );
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => notificationService.deleteNotification(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      queryClient.setQueriesData({ queryKey: ['notifications'] }, (old: any) =>
+        old ? { ...old, items: old.items?.filter((n: Notification) => n.id !== id) } : old
+      );
+    },
+    onSuccess: () => toast.success('Notification removed'),
+    onError: () => toast.error('Failed to delete notification'),
+  });
+
+  const handleMarkAllRead = () => {
+    markAllReadMutation.mutate();
   };
 
-  const handleMarkAsRead = async (notification: Notification) => {
+  const handleMarkAsRead = (notification: Notification) => {
     if (!notification.isRead) {
-      try {
-        await notificationService.markAsRead(notification.id);
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n))
-        );
-      } catch {
-        // Handled silently
-      }
+      markAsReadMutation.mutate(notification);
     }
 
     // Direct navigation if resourceId is provided
@@ -76,15 +99,9 @@ export const NotificationsPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    try {
-      await notificationService.deleteNotification(id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      toast.success('Notification removed');
-    } catch {
-      toast.error('Failed to delete notification');
-    }
+    deleteMutation.mutate(id);
   };
 
   const getNotificationIcon = (type: NotificationType) => {

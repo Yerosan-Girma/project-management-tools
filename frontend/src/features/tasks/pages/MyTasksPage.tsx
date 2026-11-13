@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckSquare,
   Search,
@@ -25,8 +26,7 @@ type ViewMode = 'list' | 'board';
 type SortField = 'dueDate' | 'priority' | 'title';
 
 export const MyTasksPage: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // Filters & Views
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -39,22 +39,19 @@ export const MyTasksPage: React.FC = () => {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const loadMyTasks = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ['my-tasks'],
+    queryFn: async () => {
       const res = await taskService.getMyTasks();
-      const list = Array.isArray(res) ? res : (res?.items || []);
-      setTasks(list);
-    } catch {
-      toast.error('Failed to load your assigned tasks');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      return Array.isArray(res) ? res : (res?.items || []);
+    },
+    staleTime: 1000 * 30,
+    placeholderData: (previousData) => previousData,
+  });
 
-  useEffect(() => {
-    loadMyTasks();
-  }, [loadMyTasks]);
+  const loadMyTasks = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+  }, [queryClient]);
 
   // Quick toggle task completion
   const handleToggleTask = async (task: Task, e: React.MouseEvent) => {
@@ -69,7 +66,7 @@ export const MyTasksPage: React.FC = () => {
         ? columns.find((c) => c.isCompletedColumn) || columns[columns.length - 1]
         : columns.find((c) => !c.isCompletedColumn) || columns[0];
 
-      setTasks((prev) =>
+      queryClient.setQueryData<Task[]>(['my-tasks'], (prev = []) =>
         prev.map((t) =>
           t.id === task.id
             ? ({

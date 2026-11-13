@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
   Search,
@@ -17,7 +18,7 @@ import {
 import { useAuthStore } from '../../../stores/auth-store';
 import { useWorkspaceStore } from '../../../stores/workspace-store';
 import { projectService } from '../services/project.service';
-import { Project, ProjectStatus, PriorityLevel } from '../../../types/project.types';
+import { ProjectStatus, PriorityLevel } from '../../../types/project.types';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
@@ -37,34 +38,31 @@ export const ProjectsPage: React.FC = () => {
     currentWorkspace?.members?.find((m) => m.userId === user?.id)?.role === 'GUEST';
   const [searchParams, setSearchParams] = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(searchParams.get('create') === 'true');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const loadProjects = useCallback(async () => {
-    if (!currentWorkspace) return;
-    try {
-      setIsLoading(true);
-      const params: { status?: ProjectStatus; priority?: PriorityLevel } = {};
-      if (statusFilter !== 'ALL') params.status = statusFilter as ProjectStatus;
-      if (priorityFilter !== 'ALL') params.priority = priorityFilter as PriorityLevel;
+  const queryParams = useMemo(() => {
+    const params: { status?: ProjectStatus; priority?: PriorityLevel } = {};
+    if (statusFilter !== 'ALL') params.status = statusFilter as ProjectStatus;
+    if (priorityFilter !== 'ALL') params.priority = priorityFilter as PriorityLevel;
+    return params;
+  }, [statusFilter, priorityFilter]);
 
-      const data = await projectService.getWorkspaceProjects(currentWorkspace.id, params);
-      setProjects(data);
-    } catch {
-      // Handled gracefully
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentWorkspace, statusFilter, priorityFilter]);
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ['workspace-projects', currentWorkspace?.id, queryParams],
+    queryFn: () => projectService.getWorkspaceProjects(currentWorkspace!.id, queryParams),
+    enabled: Boolean(currentWorkspace?.id),
+    staleTime: 1000 * 30,
+    placeholderData: (previousData) => previousData,
+  });
 
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+  const loadProjects = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['workspace-projects', currentWorkspace?.id] });
+  }, [queryClient, currentWorkspace?.id]);
 
   const handleOpenCreate = () => {
     setIsCreateOpen(true);
