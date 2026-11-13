@@ -30,7 +30,13 @@ export class TasksController {
 
   listMyTasks = async (req: Request, res: Response): Promise<void> => {
     const workspaceId = req.query.workspaceId as string | undefined;
-    const tasks = await this.tasksService.listMyAssignedTasks(req.user!.id, workspaceId);
+    const pagination = parsePagination(req.query);
+    const tasks = await this.tasksService.listMyAssignedTasks(
+      req.user!.id,
+      workspaceId,
+      pagination.skip,
+      pagination.limit
+    );
     ApiResponse.success(res, 'Assigned tasks retrieved.', tasks);
   };
 

@@ -6,149 +6,200 @@ export class AnalyticsRepository {
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    // 1. Total workspaces user belongs to
-    const workspacesCount = await prisma.workspaceMember.count({
-      where: { userId, workspace: { deletedAt: null, isArchived: false } }
-    });
-
-    // Check user platform role & workspace membership if workspaceId is provided
-    let userWorkspaceRole: string | null = null;
-    let isWorkspaceAdminOrOwner = false;
-
     if (workspaceId) {
-      const membership = await prisma.workspaceMember.findUnique({
-        where: { workspaceId_userId: { workspaceId, userId } }
-      });
-      if (membership) {
-        userWorkspaceRole = membership.role;
-        isWorkspaceAdminOrOwner =
-          membership.role === WorkspaceRole.OWNER || membership.role === WorkspaceRole.ADMIN;
-      }
+      // Single-Round-Trip CTE Aggregation for active workspace
+      const rawData: any[] = await prisma.$queryRawUnsafe(`
+        WITH ws_membership AS (
+          SELECT "role"
+          FROM workspace_members
+          WHERE "workspaceId" = $1::uuid AND "userId" = $2::uuid
+          LIMIT 1
+        ),
+        ws_count AS (
+          SELECT COUNT(*)::int AS count
+          FROM workspace_members wm
+          JOIN workspaces w ON w.id = wm."workspaceId"
+          WHERE wm."userId" = $2::uuid AND w."deletedAt" IS NULL AND w."isArchived" = false
+        ),
+        members_count AS (
+          SELECT COUNT(*)::int AS count
+          FROM workspace_members
+          WHERE "workspaceId" = $1::uuid
+        ),
+        accessible_projects AS (
+          SELECT p.id, p.status
+          FROM projects p
+          LEFT JOIN ws_membership wm ON true
+          WHERE p."workspaceId" = $1::uuid
+            AND p."deletedAt" IS NULL
+            AND p."isArchived" = false
+            AND (
+              wm."role" IN ('OWNER', 'ADMIN')
+              OR EXISTS (
+                SELECT 1 FROM project_members pm
+                WHERE pm."projectId" = p.id AND pm."userId" = $2::uuid
+              )
+            )
+        ),
+        user_tasks AS (
+          SELECT
+            t.priority,
+            t."dueDate",
+            c."isCompletedColumn"
+          FROM tasks t
+          JOIN board_columns c ON c.id = t."boardColumnId"
+          JOIN task_assignees ta ON ta."taskId" = t.id AND ta."userId" = $2::uuid
+          JOIN accessible_projects ap ON ap.id = t."projectId"
+          WHERE t."deletedAt" IS NULL AND t."isArchived" = false
+        ),
+        team_tasks AS (
+          SELECT
+            t."dueDate",
+            c."isCompletedColumn"
+          FROM tasks t
+          JOIN board_columns c ON c.id = t."boardColumnId"
+          JOIN accessible_projects ap ON ap.id = t."projectId"
+          WHERE t."deletedAt" IS NULL AND t."isArchived" = false
+        )
+        SELECT
+          COALESCE((SELECT count FROM ws_count), 0)::int AS "workspacesCount",
+          (SELECT "role" FROM ws_membership) AS "userRole",
+          COALESCE((SELECT COUNT(*)::int FROM accessible_projects), 0)::int AS "totalProjects",
+          COALESCE((SELECT COUNT(*)::int FROM accessible_projects WHERE status = 'ACTIVE'), 0)::int AS "activeProjects",
+          COALESCE((SELECT count FROM members_count), 0)::int AS "totalMembers",
+          -- User tasks aggregations
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks), 0)::int AS "assignedTotal",
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE "isCompletedColumn" = true), 0)::int AS "assignedCompleted",
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE "isCompletedColumn" = false AND "dueDate" < $3), 0)::int AS "assignedOverdue",
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE "isCompletedColumn" = false AND "dueDate" >= $3 AND "dueDate" <= $4), 0)::int AS "assignedUpcoming",
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'LOW'), 0)::int AS "assignedLow",
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'MEDIUM'), 0)::int AS "assignedMedium",
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'HIGH'), 0)::int AS "assignedHigh",
+          COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'URGENT'), 0)::int AS "assignedUrgent",
+          -- Team tasks aggregations
+          COALESCE((SELECT COUNT(*)::int FROM team_tasks), 0)::int AS "teamTotal",
+          COALESCE((SELECT COUNT(*)::int FROM team_tasks WHERE "isCompletedColumn" = true), 0)::int AS "teamCompleted",
+          COALESCE((SELECT COUNT(*)::int FROM team_tasks WHERE "isCompletedColumn" = false AND "dueDate" < $3), 0)::int AS "teamOverdue"
+      `, workspaceId, userId, now, tomorrow);
+
+      const row = rawData[0] || {};
+      const isWorkspaceAdminOrOwner = row.userRole === 'OWNER' || row.userRole === 'ADMIN';
+      const totalAssigned = row.assignedTotal || 0;
+      const completedAssigned = row.assignedCompleted || 0;
+      const teamTotal = row.teamTotal || 0;
+      const teamCompleted = row.teamCompleted || 0;
+
+      return {
+        workspacesCount: row.workspacesCount || 0,
+        projects: {
+          total: row.totalProjects || 0,
+          active: row.activeProjects || 0
+        },
+        tasks: {
+          assignedTotal: totalAssigned,
+          completed: completedAssigned,
+          pending: Math.max(0, totalAssigned - completedAssigned),
+          overdue: row.assignedOverdue || 0,
+          upcomingWithin24h: row.assignedUpcoming || 0
+        },
+        userRole: row.userRole || null,
+        isWorkspaceAdminOrOwner,
+        priorityDistribution: {
+          LOW: row.assignedLow || 0,
+          MEDIUM: row.assignedMedium || 0,
+          HIGH: row.assignedHigh || 0,
+          URGENT: row.assignedUrgent || 0
+        },
+        completionVelocityPercent:
+          totalAssigned > 0 ? Math.round((completedAssigned / totalAssigned) * 100) : 0,
+        teamStats: {
+          totalTasks: teamTotal,
+          completedTasks: teamCompleted,
+          pendingTasks: Math.max(0, teamTotal - teamCompleted),
+          overdueTasks: row.teamOverdue || 0,
+          totalMembers: row.totalMembers || 0,
+          completionPercentage:
+            teamTotal > 0 ? Math.round((teamCompleted / teamTotal) * 100) : 0
+        }
+      };
     }
 
-    // 2. User accessible projects
-    const projectWhere: any = {
-      deletedAt: null,
-      isArchived: false
-    };
+    // Global (cross-workspace) single-round-trip CTE aggregation
+    const rawData: any[] = await prisma.$queryRawUnsafe(`
+      WITH ws_count AS (
+        SELECT COUNT(*)::int AS count
+        FROM workspace_members wm
+        JOIN workspaces w ON w.id = wm."workspaceId"
+        WHERE wm."userId" = $1::uuid AND w."deletedAt" IS NULL AND w."isArchived" = false
+      ),
+      accessible_projects AS (
+        SELECT p.id, p.status
+        FROM projects p
+        JOIN project_members pm ON pm."projectId" = p.id AND pm."userId" = $1::uuid
+        JOIN workspaces w ON w.id = p."workspaceId"
+        WHERE p."deletedAt" IS NULL AND p."isArchived" = false
+          AND w."deletedAt" IS NULL AND w."isArchived" = false
+      ),
+      user_tasks AS (
+        SELECT
+          t.priority,
+          t."dueDate",
+          c."isCompletedColumn"
+        FROM tasks t
+        JOIN board_columns c ON c.id = t."boardColumnId"
+        JOIN task_assignees ta ON ta."taskId" = t.id AND ta."userId" = $1::uuid
+        JOIN accessible_projects ap ON ap.id = t."projectId"
+        WHERE t."deletedAt" IS NULL AND t."isArchived" = false
+      )
+      SELECT
+        COALESCE((SELECT count FROM ws_count), 0)::int AS "workspacesCount",
+        COALESCE((SELECT COUNT(*)::int FROM accessible_projects), 0)::int AS "totalProjects",
+        COALESCE((SELECT COUNT(*)::int FROM accessible_projects WHERE status = 'ACTIVE'), 0)::int AS "activeProjects",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks), 0)::int AS "assignedTotal",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE "isCompletedColumn" = true), 0)::int AS "assignedCompleted",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE "isCompletedColumn" = false AND "dueDate" < $2), 0)::int AS "assignedOverdue",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE "isCompletedColumn" = false AND "dueDate" >= $2 AND "dueDate" <= $3), 0)::int AS "assignedUpcoming",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'LOW'), 0)::int AS "assignedLow",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'MEDIUM'), 0)::int AS "assignedMedium",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'HIGH'), 0)::int AS "assignedHigh",
+        COALESCE((SELECT COUNT(*)::int FROM user_tasks WHERE priority = 'URGENT'), 0)::int AS "assignedUrgent"
+    `, userId, now, tomorrow);
 
-    if (workspaceId) {
-      projectWhere.workspaceId = workspaceId;
-      if (!isWorkspaceAdminOrOwner) {
-        projectWhere.members = { some: { userId } };
-      }
-    } else {
-      projectWhere.members = { some: { userId } };
-    }
-
-    const userProjects = await prisma.project.findMany({
-      where: projectWhere,
-      select: { id: true, status: true, priority: true }
-    });
-
-    const totalProjects = userProjects.length;
-    const activeProjects = userProjects.filter((p) => p.status === ProjectStatus.ACTIVE).length;
-    const projectIds = userProjects.map((p) => p.id);
-
-    // 3. User assigned tasks
-    const taskWhere: any = {
-      deletedAt: null,
-      isArchived: false,
-      assignees: { some: { userId } }
-    };
-    if (workspaceId) {
-      taskWhere.project = { workspaceId, deletedAt: null, isArchived: false };
-    } else if (projectIds.length > 0) {
-      taskWhere.projectId = { in: projectIds };
-    }
-
-    const userAssignedTasks = await prisma.task.findMany({
-      where: taskWhere,
-      include: {
-        column: { select: { isCompletedColumn: true } }
-      }
-    });
-
-    const totalAssignedTasks = userAssignedTasks.length;
-    const completedTasks = userAssignedTasks.filter((t) => t.column.isCompletedColumn).length;
-    const pendingTasks = totalAssignedTasks - completedTasks;
-
-    const overdueTasks = userAssignedTasks.filter(
-      (t) => !t.column.isCompletedColumn && t.dueDate && t.dueDate < now
-    ).length;
-
-    const upcomingDeadlines = userAssignedTasks.filter(
-      (t) => !t.column.isCompletedColumn && t.dueDate && t.dueDate >= now && t.dueDate <= tomorrow
-    ).length;
-
-    // Priority breakdown of assigned tasks
-    const priorityDistribution: Record<string, number> = {
-      LOW: 0,
-      MEDIUM: 0,
-      HIGH: 0,
-      URGENT: 0
-    };
-    for (const t of userAssignedTasks) {
-      if (priorityDistribution[t.priority] !== undefined) {
-        priorityDistribution[t.priority]++;
-      }
-    }
-
-    // Team stats for the active workspace (or all accessible projects)
-    const teamTasksWhere: any = {
-      deletedAt: null,
-      isArchived: false
-    };
-    if (workspaceId && isWorkspaceAdminOrOwner) {
-      teamTasksWhere.project = { workspaceId, deletedAt: null, isArchived: false };
-    } else if (projectIds.length > 0) {
-      teamTasksWhere.projectId = { in: projectIds };
-    } else {
-      teamTasksWhere.projectId = '__none__';
-    }
-
-    const [teamTasks, teamMemberCount] = await Promise.all([
-      prisma.task.findMany({
-        where: teamTasksWhere,
-        include: { column: { select: { isCompletedColumn: true } } }
-      }),
-      workspaceId
-        ? prisma.workspaceMember.count({ where: { workspaceId } })
-        : Promise.resolve(0)
-    ]);
-
-    const teamCompleted = teamTasks.filter((t) => t.column.isCompletedColumn).length;
-    const teamPending = teamTasks.length - teamCompleted;
-    const teamOverdue = teamTasks.filter(
-      (t) => !t.column.isCompletedColumn && t.dueDate && t.dueDate < now
-    ).length;
+    const row = rawData[0] || {};
+    const totalAssigned = row.assignedTotal || 0;
+    const completedAssigned = row.assignedCompleted || 0;
 
     return {
-      workspacesCount,
+      workspacesCount: row.workspacesCount || 0,
       projects: {
-        total: totalProjects,
-        active: activeProjects
+        total: row.totalProjects || 0,
+        active: row.activeProjects || 0
       },
       tasks: {
-        assignedTotal: totalAssignedTasks,
-        completed: completedTasks,
-        pending: pendingTasks,
-        overdue: overdueTasks,
-        upcomingWithin24h: upcomingDeadlines
+        assignedTotal: totalAssigned,
+        completed: completedAssigned,
+        pending: Math.max(0, totalAssigned - completedAssigned),
+        overdue: row.assignedOverdue || 0,
+        upcomingWithin24h: row.assignedUpcoming || 0
       },
-      userRole: userWorkspaceRole,
-      isWorkspaceAdminOrOwner,
-      priorityDistribution,
+      userRole: null,
+      isWorkspaceAdminOrOwner: false,
+      priorityDistribution: {
+        LOW: row.assignedLow || 0,
+        MEDIUM: row.assignedMedium || 0,
+        HIGH: row.assignedHigh || 0,
+        URGENT: row.assignedUrgent || 0
+      },
       completionVelocityPercent:
-        totalAssignedTasks > 0 ? Math.round((completedTasks / totalAssignedTasks) * 100) : 0,
+        totalAssigned > 0 ? Math.round((completedAssigned / totalAssigned) * 100) : 0,
       teamStats: {
-        totalTasks: teamTasks.length,
-        completedTasks: teamCompleted,
-        pendingTasks: teamPending,
-        overdueTasks: teamOverdue,
-        totalMembers: teamMemberCount,
+        totalTasks: totalAssigned,
+        completedTasks: completedAssigned,
+        pendingTasks: Math.max(0, totalAssigned - completedAssigned),
+        overdueTasks: row.assignedOverdue || 0,
+        totalMembers: 0,
         completionPercentage:
-          teamTasks.length > 0 ? Math.round((teamCompleted / teamTasks.length) * 100) : 0
+          totalAssigned > 0 ? Math.round((completedAssigned / totalAssigned) * 100) : 0
       }
     };
   }
@@ -156,92 +207,67 @@ export class AnalyticsRepository {
   async getProjectAnalytics(projectId: string) {
     const now = new Date();
 
-    const [project, tasks, members] = await Promise.all([
+    const [project, tasksSummary, priorityRaw, memberWorkload] = await Promise.all([
       prisma.project.findUnique({
         where: { id: projectId },
         select: { id: true, name: true, key: true, status: true, priority: true }
       }),
-      prisma.task.findMany({
-        where: {
-          projectId,
-          deletedAt: null,
-          isArchived: false
-        },
-        include: {
-          column: { select: { id: true, name: true, isCompletedColumn: true } },
-          assignees: {
-            include: {
-              user: { select: { id: true, name: true, email: true, avatarUrl: true } }
-            }
-          }
-        }
-      }),
-      prisma.projectMember.findMany({
-        where: { projectId },
-        include: {
-          user: { select: { id: true, name: true, email: true, avatarUrl: true } }
-        }
-      })
+      // Task summary count directly in Postgres
+      prisma.$queryRawUnsafe<any[]>(`
+        SELECT
+          COUNT(*)::int AS "total",
+          COUNT(*) FILTER (WHERE c."isCompletedColumn" = true)::int AS "completed",
+          COUNT(*) FILTER (WHERE c."isCompletedColumn" = false AND t."dueDate" < $1)::int AS "overdue"
+        FROM tasks t
+        JOIN board_columns c ON c.id = t."boardColumnId"
+        WHERE t."projectId" = $2::uuid AND t."deletedAt" IS NULL AND t."isArchived" = false
+      `, now, projectId),
+      // Priority distribution directly in Postgres
+      prisma.$queryRawUnsafe<any[]>(`
+        SELECT
+          COUNT(*) FILTER (WHERE priority = 'LOW')::int AS "LOW",
+          COUNT(*) FILTER (WHERE priority = 'MEDIUM')::int AS "MEDIUM",
+          COUNT(*) FILTER (WHERE priority = 'HIGH')::int AS "HIGH",
+          COUNT(*) FILTER (WHERE priority = 'URGENT')::int AS "URGENT"
+        FROM tasks
+        WHERE "projectId" = $1::uuid AND "deletedAt" IS NULL AND "isArchived" = false
+      `, projectId),
+      // Member workload directly in Postgres
+      prisma.$queryRawUnsafe<any[]>(`
+        SELECT
+          u.id AS "userId",
+          u.name,
+          u.email,
+          u."avatarUrl",
+          COUNT(ta."taskId")::int AS "assigned",
+          COUNT(ta."taskId") FILTER (WHERE c."isCompletedColumn" = true)::int AS "completed"
+        FROM project_members pm
+        JOIN users u ON u.id = pm."userId"
+        LEFT JOIN task_assignees ta ON ta."userId" = pm."userId"
+        LEFT JOIN tasks t ON t.id = ta."taskId" AND t."projectId" = pm."projectId" AND t."deletedAt" IS NULL AND t."isArchived" = false
+        LEFT JOIN board_columns c ON c.id = t."boardColumnId"
+        WHERE pm."projectId" = $1::uuid AND u."deletedAt" IS NULL
+        GROUP BY u.id, u.name, u.email, u."avatarUrl"
+        ORDER BY "assigned" DESC
+      `, projectId)
     ]);
 
     if (!project) return null;
 
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t) => t.column.isCompletedColumn).length;
-    const pendingTasks = totalTasks - completedTasks;
+    const summaryRow = tasksSummary[0] || {};
+    const totalTasks = summaryRow.total || 0;
+    const completedTasks = summaryRow.completed || 0;
+    const overdueTasks = summaryRow.overdue || 0;
+    const pendingTasks = Math.max(0, totalTasks - completedTasks);
     const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    const overdueTasks = tasks.filter(
-      (t) => !t.column.isCompletedColumn && t.dueDate && t.dueDate < now
-    ).length;
-
-    // Distribution by priority
+    const priRow = priorityRaw[0] || {};
     const priorityCounts: Record<string, number> = {
-      LOW: 0,
-      MEDIUM: 0,
-      HIGH: 0,
-      URGENT: 0
+      LOW: priRow.LOW || 0,
+      MEDIUM: priRow.MEDIUM || 0,
+      HIGH: priRow.HIGH || 0,
+      URGENT: priRow.URGENT || 0
     };
-    for (const t of tasks) {
-      if (priorityCounts[t.priority] !== undefined) {
-        priorityCounts[t.priority]++;
-      }
-    }
-
-    // Member workload
-    const memberStatsMap: Record<
-      string,
-      {
-        userId: string;
-        name: string;
-        email: string;
-        avatarUrl: string | null;
-        assigned: number;
-        completed: number;
-      }
-    > = {};
-
-    for (const m of members) {
-      memberStatsMap[m.userId] = {
-        userId: m.userId,
-        name: m.user.name,
-        email: m.user.email,
-        avatarUrl: m.user.avatarUrl,
-        assigned: 0,
-        completed: 0
-      };
-    }
-
-    for (const t of tasks) {
-      for (const a of t.assignees) {
-        if (memberStatsMap[a.userId]) {
-          memberStatsMap[a.userId].assigned++;
-          if (t.column.isCompletedColumn) {
-            memberStatsMap[a.userId].completed++;
-          }
-        }
-      }
-    }
 
     return {
       project,
@@ -253,7 +279,7 @@ export class AnalyticsRepository {
         completionPercentage
       },
       priorityBreakdown: priorityCounts,
-      memberWorkload: Object.values(memberStatsMap)
+      memberWorkload
     };
   }
 
@@ -261,14 +287,13 @@ export class AnalyticsRepository {
     const analytics = await this.getProjectAnalytics(projectId);
     if (!analytics) return null;
 
-    // Generate completion trend and health assessment
     const isHealthy = analytics.summary.overdueTasks === 0;
     const healthStatus =
       analytics.summary.overdueTasks > 5
         ? 'AT_RISK'
         : analytics.summary.overdueTasks > 0
-        ? 'NEEDS_ATTENTION'
-        : 'HEALTHY';
+          ? 'NEEDS_ATTENTION'
+          : 'HEALTHY';
 
     return {
       ...analytics,

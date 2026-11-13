@@ -35,7 +35,8 @@ export const corsOptions: CorsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  maxAge: 86400 // Cache preflight OPTIONS response for 24 hours to eliminate preflight latency
 };
 
 export const corsMiddleware = cors(corsOptions);

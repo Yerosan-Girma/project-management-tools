@@ -10,6 +10,7 @@ import {
 } from '../../../types/project.types';
 import { Activity } from '../../../types/activity.types';
 import { WorkspaceInvitation } from '../../../types/workspace.types';
+import { queryClient } from '../../../app/query-client';
 
 export interface CreateProjectInput {
   workspaceId: string;
@@ -33,6 +34,7 @@ export interface UpdateProjectInput {
 export const projectService = {
   async createProject(data: CreateProjectInput): Promise<Project> {
     const response = await api.post<ApiResponse<Project>>('/projects', data);
+    queryClient.invalidateQueries({ queryKey: ['workspace-projects', data.workspaceId] });
     return response.data.data;
   },
 
@@ -40,25 +42,40 @@ export const projectService = {
     workspaceId: string,
     params?: { status?: ProjectStatus; priority?: PriorityLevel }
   ): Promise<Project[]> {
-    const response = await api.get<ApiResponse<Project[]>>(
-      `/projects/workspace/${workspaceId}`,
-      { params }
-    );
-    return response.data.data;
+    return queryClient.fetchQuery({
+      queryKey: ['workspace-projects', workspaceId, params],
+      queryFn: async () => {
+        const response = await api.get<ApiResponse<Project[]>>(
+          `/projects/workspace/${workspaceId}`,
+          { params }
+        );
+        return response.data.data;
+      },
+      staleTime: 1000 * 30, // 30 seconds
+    });
   },
 
   async getProject(projectId: string): Promise<Project> {
-    const response = await api.get<ApiResponse<Project>>(`/projects/${projectId}`);
-    return response.data.data;
+    return queryClient.fetchQuery({
+      queryKey: ['project', projectId],
+      queryFn: async () => {
+        const response = await api.get<ApiResponse<Project>>(`/projects/${projectId}`);
+        return response.data.data;
+      },
+      staleTime: 1000 * 30,
+    });
   },
 
   async updateProject(projectId: string, data: UpdateProjectInput): Promise<Project> {
     const response = await api.patch<ApiResponse<Project>>(`/projects/${projectId}`, data);
+    queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['workspace-projects'] });
     return response.data.data;
   },
 
   async deleteProject(projectId: string): Promise<void> {
     await api.delete(`/projects/${projectId}`);
+    queryClient.invalidateQueries({ queryKey: ['workspace-projects'] });
   },
 
   async getProjectOverview(projectId: string): Promise<ProjectOverview> {

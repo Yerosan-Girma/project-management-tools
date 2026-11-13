@@ -5,13 +5,13 @@ import { env } from './env';
 const prismaClientSingleton = () => {
   return new PrismaClient({
     log:
-      env.NODE_ENV === 'development'
-        ? [
+      env.NODE_ENV === 'test'
+        ? [{ emit: 'stdout', level: 'error' }]
+        : [
             { emit: 'event', level: 'query' },
             { emit: 'stdout', level: 'error' },
-            { emit: 'stdout', level: 'warn' }
-          ]
-        : [{ emit: 'stdout', level: 'error' }],
+            ...(env.NODE_ENV === 'development' ? [{ emit: 'stdout' as const, level: 'warn' as const }] : [])
+          ],
     // Connection pool settings optimized for Render/PostgreSQL
     datasources: {
       db: {
@@ -31,10 +31,15 @@ if (env.NODE_ENV !== 'production') {
   globalThis.prismaGlobal = prisma;
 }
 
-// Log queries in development if desired
-if (env.NODE_ENV === 'development') {
-  (prisma as any).$on?.('query', (e: any) => {
-    logger.debug({ query: e.query, params: e.params, duration: `${e.duration}ms` }, 'Prisma Query');
+// Log only slow-query timing, never SQL text or parameter values (which may contain user data).
+if (env.NODE_ENV !== 'test') {
+  prisma.$on('query', (event) => {
+    if (event.duration >= env.SLOW_QUERY_THRESHOLD_MS) {
+      logger.warn(
+        { durationMs: event.duration, thresholdMs: env.SLOW_QUERY_THRESHOLD_MS },
+        'Slow database query'
+      );
+    }
   });
 }
 

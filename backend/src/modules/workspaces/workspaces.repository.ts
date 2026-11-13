@@ -66,12 +66,15 @@ export class WorkspacesRepository {
     });
   }
 
-  async listUserWorkspaces(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { platformRole: true }
-    });
-    const isPlatformAdmin = user?.platformRole === 'PLATFORM_ADMIN';
+  async listUserWorkspaces(userId: string, platformRole?: string) {
+    let isPlatformAdmin = platformRole === 'PLATFORM_ADMIN';
+    if (platformRole === undefined) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { platformRole: true }
+      });
+      isPlatformAdmin = user?.platformRole === 'PLATFORM_ADMIN';
+    }
 
     const whereClause: any = { deletedAt: null };
     if (!isPlatformAdmin) {

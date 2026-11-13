@@ -51,7 +51,9 @@ const envSchema = z.object({
     return match ? match[1].trim() : val.trim().replace(/^["']|["']$/g, '');
   }),
 
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info')
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  SLOW_QUERY_THRESHOLD_MS: z.coerce.number().int().positive().default(250),
+  SLOW_REQUEST_THRESHOLD_MS: z.coerce.number().int().positive().default(1000)
 });
 
 const parseEnv = () => {

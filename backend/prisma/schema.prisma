@@ -214,6 +214,7 @@ model WorkspaceMember {
   @@index([workspaceId])
   @@index([userId])
   @@index([role])
+  @@index([userId, role])
   @@map("workspace_members")
 }
 
@@ -245,6 +246,9 @@ model WorkspaceInvitation {
   @@index([token])
   @@index([status])
   @@index([deliveryStatus])
+  @@index([workspaceId, status])
+  @@index([email, status])
+  @@index([projectId, status])
   @@map("workspace_invitations")
 }
 
@@ -281,6 +285,7 @@ model Project {
   @@index([status])
   @@index([priority])
   @@index([isArchived])
+  @@index([workspaceId, deletedAt, isArchived, updatedAt(sort: Desc)])
   @@map("projects")
 }
 
@@ -379,6 +384,8 @@ model Task {
   @@index([completedAt])
   @@index([isArchived])
   @@index([deletedAt])
+  @@index([projectId, deletedAt, isArchived, position])
+  @@index([boardColumnId, deletedAt, isArchived, position])
   @@map("tasks")
 }
 
@@ -473,6 +480,8 @@ model Notification {
   @@index([recipientId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([recipientId, isRead])
+  @@index([recipientId, createdAt(sort: Desc)])
   @@map("notifications")
 }
 
@@ -496,6 +505,8 @@ model ActivityLog {
   @@index([projectId])
   @@index([resourceType, resourceId])
   @@index([createdAt])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([projectId, createdAt(sort: Desc)])
   @@map("activity_logs")
 }
 

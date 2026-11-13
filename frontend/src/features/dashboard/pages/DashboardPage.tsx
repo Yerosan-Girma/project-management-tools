@@ -129,56 +129,50 @@ export const DashboardPage: React.FC = () => {
     return member?.role === 'ADMIN' || Boolean(stats?.isWorkspaceAdminOrOwner);
   }, [user, currentWorkspace, workspaceMembers, stats?.isWorkspaceAdminOrOwner]);
 
-  // Load Dashboard Data
+  // Load dashboard data and ignore stale responses after workspace changes/unmounts.
   const loadDashboardData = useCallback(async (showRefreshingState = false) => {
+    if (showRefreshingState) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    const activeWsId = currentWorkspace?.id;
+    const isCurrentWorkspace = () => useWorkspaceStore.getState().currentWorkspace?.id === activeWsId;
     try {
-      if (showRefreshingState) setIsRefreshing(true);
-      else setIsLoading(true);
-
-      const activeWsId = currentWorkspace?.id;
-
-      // 1. Fetch user dashboard stats (workspace-scoped if available)
-      // 2. Fetch user assigned tasks
+      // Core content is parallelized. Secondary workspace panels load independently so their
+      // slower responses do not hold the useful dashboard metrics and assigned tasks hostage.
       const [statsData, tasksRes] = await Promise.all([
         analyticsService.getDashboardStats(activeWsId),
-        taskService.getMyTasks({ workspaceId: activeWsId }),
+        taskService.getMyTasks({ workspaceId: activeWsId })
       ]);
+      if (!isCurrentWorkspace()) return;
 
       setStats(statsData);
-
-      // Support both array and paginated response safely
       const parsedTasks: Task[] = Array.isArray(tasksRes)
         ? tasksRes
         : (tasksRes as any)?.items || [];
       setAssignedTasks(parsedTasks);
-
-      // If active workspace is selected, fetch projects, members, and activity stream
-      if (activeWsId) {
-        const [projData, membersData, activitiesData] = await Promise.all([
-          projectService.getWorkspaceProjects(activeWsId).catch(() => []),
-          workspaceService.getMembers(activeWsId, { limit: 12 }).catch(() => null),
-          activityService.getWorkspaceActivities(activeWsId, { limit: 8 }).catch(() => null),
-        ]);
-
-        setWorkspaceProjects(projData);
-
-        if (membersData && membersData.items) {
-          setWorkspaceMembers(membersData.items);
-        } else if (Array.isArray(membersData)) {
-          setWorkspaceMembers(membersData);
-        }
-
-        if (activitiesData && activitiesData.items) {
-          setRecentActivities(activitiesData.items);
-        } else if (Array.isArray(activitiesData)) {
-          setRecentActivities(activitiesData);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load dashboard data:', err);
-    } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
+
+      if (!activeWsId) return;
+      const secondaryData = Promise.all([
+        projectService.getWorkspaceProjects(activeWsId).catch(() => []),
+        workspaceService.getMembers(activeWsId, { limit: 12 }).catch(() => null),
+        activityService.getWorkspaceActivities(activeWsId, { limit: 8 }).catch(() => null)
+      ]);
+      void secondaryData.then(([projData, membersData, activitiesData]) => {
+        if (!isCurrentWorkspace()) return;
+        setWorkspaceProjects(projData);
+        if (membersData && membersData.items) setWorkspaceMembers(membersData.items);
+        else if (Array.isArray(membersData)) setWorkspaceMembers(membersData);
+        if (activitiesData && activitiesData.items) setRecentActivities(activitiesData.items);
+        else if (Array.isArray(activitiesData)) setRecentActivities(activitiesData);
+      });
+    } catch (err) {
+      if (isCurrentWorkspace()) console.error('Failed to load dashboard data:', err);
+    } finally {
+      if (isCurrentWorkspace()) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [currentWorkspace?.id]);
 

@@ -47,8 +47,8 @@ export class WorkspacesService {
     return workspace;
   }
 
-  async listUserWorkspaces(userId: string) {
-    const workspaces = await this.workspacesRepo.listUserWorkspaces(userId);
+  async listUserWorkspaces(userId: string, platformRole?: string) {
+    const workspaces = await this.workspacesRepo.listUserWorkspaces(userId, platformRole);
     return workspaces.map((ws) => ({
       id: ws.id,
       name: ws.name,

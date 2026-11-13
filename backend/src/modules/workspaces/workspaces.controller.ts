@@ -13,7 +13,7 @@ export class WorkspacesController {
   };
 
   listMyWorkspaces = async (req: Request, res: Response): Promise<void> => {
-    const workspaces = await this.workspacesService.listUserWorkspaces(req.user!.id);
+    const workspaces = await this.workspacesService.listUserWorkspaces(req.user!.id, req.user?.role);
     ApiResponse.success(res, 'Workspaces retrieved successfully.', workspaces);
   };
 

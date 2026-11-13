@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 import { corsMiddleware } from './config/cors';
@@ -45,18 +46,53 @@ export function createApp(): Application {
   // 2. Strict CORS
   app.use(corsMiddleware);
 
+  // 2.1 HTTP Response Compression (Gzip/Deflate)
+  app.use(compression());
+
   // 3. Body & Cookie Parsing
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(cookieParser());
 
-  // 4. Request Logging (skip in test environment)
+  // 4. Performance Monitoring: Server-Timing Header and Request Duration Measurement
+  app.use((req, res, next) => {
+    const startedAt = performance.now();
+    const originalSend = res.send;
+    res.send = function (body) {
+      if (!res.headersSent) {
+        const durationMs = (performance.now() - startedAt).toFixed(1);
+        res.setHeader('Server-Timing', `app;dur=${durationMs};desc="App Server Response"`);
+      }
+      return originalSend.call(this, body);
+    };
+    res.on('finish', () => {
+      const durationMs = Math.round(performance.now() - startedAt);
+      if (durationMs >= env.SLOW_REQUEST_THRESHOLD_MS && env.NODE_ENV !== 'test') {
+        logger.warn(
+          { method: req.method, path: req.path, statusCode: res.statusCode, durationMs },
+          'Slow HTTP request'
+        );
+      }
+    });
+    next();
+  });
+
+  // 4.1 Structured Request Logging (skip in test environment)
   if (env.NODE_ENV !== 'test') {
     app.use(
       pinoHttp({
         logger,
+        customLogLevel: (_req, res, error) => {
+          if (error || res.statusCode >= 500) return 'error';
+          if (res.statusCode >= 400) return 'warn';
+          return 'info';
+        },
         autoLogging: {
           ignore: (req) => req.url === '/health' || Boolean(req.url?.startsWith('/api/docs'))
+        },
+        serializers: {
+          req: (req) => ({ method: req.method, path: req.url?.split('?')[0] }),
+          res: (res) => ({ statusCode: res.statusCode })
         }
       })
     );

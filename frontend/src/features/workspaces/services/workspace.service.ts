@@ -6,6 +6,7 @@ import {
   WorkspaceInvitation,
   WorkspaceRole,
 } from '../../../types/workspace.types';
+import { queryClient } from '../../../app/query-client';
 
 export interface CreateWorkspaceInput {
   name: string;
@@ -21,27 +22,43 @@ export interface UpdateWorkspaceInput {
 
 export const workspaceService = {
   async getWorkspaces(): Promise<Workspace[]> {
-    const response = await api.get<ApiResponse<Workspace[]>>('/workspaces');
-    return response.data.data;
+    return queryClient.fetchQuery({
+      queryKey: ['workspaces'],
+      queryFn: async () => {
+        const response = await api.get<ApiResponse<Workspace[]>>('/workspaces');
+        return response.data.data;
+      },
+      staleTime: 1000 * 30, // 30s cache
+    });
   },
 
   async getWorkspace(workspaceId: string): Promise<Workspace> {
-    const response = await api.get<ApiResponse<Workspace>>(`/workspaces/${workspaceId}`);
-    return response.data.data;
+    return queryClient.fetchQuery({
+      queryKey: ['workspace', workspaceId],
+      queryFn: async () => {
+        const response = await api.get<ApiResponse<Workspace>>(`/workspaces/${workspaceId}`);
+        return response.data.data;
+      },
+      staleTime: 1000 * 30,
+    });
   },
 
   async createWorkspace(data: CreateWorkspaceInput): Promise<Workspace> {
     const response = await api.post<ApiResponse<Workspace>>('/workspaces', data);
+    queryClient.invalidateQueries({ queryKey: ['workspaces'] });
     return response.data.data;
   },
 
   async updateWorkspace(workspaceId: string, data: UpdateWorkspaceInput): Promise<Workspace> {
     const response = await api.patch<ApiResponse<Workspace>>(`/workspaces/${workspaceId}`, data);
+    queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
+    queryClient.invalidateQueries({ queryKey: ['workspaces'] });
     return response.data.data;
   },
 
   async deleteWorkspace(workspaceId: string): Promise<void> {
     await api.delete(`/workspaces/${workspaceId}`);
+    queryClient.invalidateQueries({ queryKey: ['workspaces'] });
   },
 
   async getMembers(

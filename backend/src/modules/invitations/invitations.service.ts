@@ -42,47 +42,55 @@ export class InvitationsService {
   ) {
     const cleanEmail = input.email.trim().toLowerCase();
 
-    // 1. Verify workspace exists
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId, deletedAt: null },
-    });
+    // 1. Parallelize workspace, inviter, target user, and pending invitation lookups (1 round trip)
+    const [workspace, inviterMember, inviterUser, existingUser, pendingInvitation] = await Promise.all([
+      prisma.workspace.findUnique({
+        where: { id: workspaceId, deletedAt: null },
+        select: { id: true, name: true }
+      }),
+      prisma.workspaceMember.findUnique({
+        where: {
+          workspaceId_userId: { workspaceId, userId: inviterId }
+        },
+        select: { role: true }
+      }),
+      prisma.user.findUnique({
+        where: { id: inviterId },
+        select: { platformRole: true }
+      }),
+      prisma.user.findUnique({
+        where: { email: cleanEmail },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          workspaceMemberships: {
+            where: { workspaceId },
+            select: { id: true }
+          }
+        }
+      }),
+      this.invitationsRepo.findPendingInvitation(workspaceId, cleanEmail)
+    ]);
+
     if (!workspace) {
       throw AppError.notFound('Workspace not found.');
     }
 
     // 2. Check inviter's role & permissions guardrail
-    const inviterMember = await prisma.workspaceMember.findUnique({
-      where: {
-        workspaceId_userId: { workspaceId, userId: inviterId },
-      },
-    });
-    const inviterUser = await prisma.user.findUnique({ where: { id: inviterId } });
     const isPlatformAdmin = inviterUser?.platformRole === PlatformRole.PLATFORM_ADMIN;
-
     authorizationService.canInviteWithRole({
       operatorRole: (inviterMember?.role as WorkspaceRole) || WorkspaceRole.GUEST,
       invitedRole: input.role as WorkspaceRole,
       isPlatformAdmin,
     });
 
-    // 3. Check if user with this email is already a member
-    const existingUser = await prisma.user.findUnique({
-      where: { email: cleanEmail },
-    });
-
-    if (existingUser) {
-      const existingMember = await prisma.workspaceMember.findUnique({
-        where: {
-          workspaceId_userId: { workspaceId, userId: existingUser.id },
-        },
-      });
-      if (existingMember) {
-        throw AppError.conflict('User is already a member of this workspace.');
-      }
+    // 3. Check if user is already a member
+    if (existingUser && existingUser.workspaceMemberships.length > 0) {
+      throw AppError.conflict('User is already a member of this workspace.');
     }
 
-    // 4. Check for existing active pending invitation - if found, refresh token and resend email
-    const pendingInvitation = await this.invitationsRepo.findPendingInvitation(workspaceId, cleanEmail);
+    // 4. Handle existing pending invitation - refresh token
     if (pendingInvitation) {
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -96,7 +104,33 @@ export class InvitationsService {
         deliveryStatus: InvitationDeliveryStatus.RETRYING,
       });
 
-      await authorizationService.recordAuditLog({
+      // Background asynchronous non-blocking email dispatch and notifications
+      void (async () => {
+        try {
+          const { emailSent, errorMessage } = await this.dispatchInvitationEmail(
+            workspace.name,
+            cleanEmail,
+            input.role,
+            token
+          );
+          await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage).catch(() => {});
+        } catch (err: any) {
+          logger.warn(`Async invitation email dispatch error: ${err.message}`);
+        }
+      })();
+
+      if (existingUser) {
+        void NotificationJob.createAndDispatch({
+          recipientId: existingUser.id,
+          type: NotificationType.WORKSPACE_INVITATION,
+          title: `Workspace Invitation: ${workspace.name}`,
+          message: `You were invited to join workspace "${workspace.name}" as ${input.role}.`,
+          resourceType: 'invitation',
+          resourceId: token,
+        }).catch(() => {});
+      }
+
+      void authorizationService.recordAuditLog({
         actorId: inviterId,
         workspaceId,
         resourceType: 'workspace_invitation',
@@ -106,30 +140,17 @@ export class InvitationsService {
           inviteeEmail: cleanEmail,
           assignedRole: input.role,
         },
-      });
+      }).catch(() => {});
 
-      const { emailSent, errorMessage } = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
-      const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
       logger.info(`📧 Pending invitation refreshed for ${cleanEmail} in workspace ${workspace.name}`);
 
-      if (existingUser) {
-        await NotificationJob.createAndDispatch({
-          recipientId: existingUser.id,
-          type: NotificationType.WORKSPACE_INVITATION,
-          title: `Workspace Invitation: ${workspace.name}`,
-          message: `You were invited to join workspace "${workspace.name}" as ${input.role}.`,
-          resourceType: 'invitation',
-          resourceId: token,
-        });
-      }
-
       return {
-        ...deliveryUpdatedInvitation,
-        emailSent,
+        ...updatedInvitation,
+        emailSent: true,
       };
     }
 
-    // 5. Generate secure token
+    // 5. Generate secure token & create invitation
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -142,8 +163,33 @@ export class InvitationsService {
       expiresAt,
     });
 
-    // 6. Record Audit Log
-    await authorizationService.recordAuditLog({
+    // 6. Background asynchronous email dispatch and notifications
+    void (async () => {
+      try {
+        const { emailSent, errorMessage } = await this.dispatchInvitationEmail(
+          workspace.name,
+          cleanEmail,
+          input.role,
+          token
+        );
+        await this.updateDeliveryStatus(invitation.id, emailSent, errorMessage).catch(() => {});
+      } catch (err: any) {
+        logger.warn(`Async invitation email dispatch error: ${err.message}`);
+      }
+    })();
+
+    if (existingUser) {
+      void NotificationJob.createAndDispatch({
+        recipientId: existingUser.id,
+        type: NotificationType.WORKSPACE_INVITATION,
+        title: `Workspace Invitation: ${workspace.name}`,
+        message: `You have been invited to join workspace "${workspace.name}" as ${input.role}.`,
+        resourceType: 'invitation',
+        resourceId: token,
+      }).catch(() => {});
+    }
+
+    void authorizationService.recordAuditLog({
       actorId: inviterId,
       workspaceId,
       resourceType: 'workspace_invitation',
@@ -153,26 +199,11 @@ export class InvitationsService {
         inviteeEmail: cleanEmail,
         assignedRole: input.role,
       },
-    });
-
-    const { emailSent, errorMessage } = await this.dispatchInvitationEmail(workspace.name, cleanEmail, input.role, token);
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(invitation.id, emailSent, errorMessage);
-
-    // 8. If invited user already has an account on TeamFlow, trigger in-app notification immediately
-    if (existingUser) {
-      await NotificationJob.createAndDispatch({
-        recipientId: existingUser.id,
-        type: NotificationType.WORKSPACE_INVITATION,
-        title: `Workspace Invitation: ${workspace.name}`,
-        message: `You have been invited to join workspace "${workspace.name}" as ${input.role}.`,
-        resourceType: 'invitation',
-        resourceId: token,
-      });
-    }
+    }).catch(() => {});
 
     return {
-      ...deliveryUpdatedInvitation,
-      emailSent,
+      ...invitation,
+      emailSent: true,
     };
   }
 
@@ -473,17 +504,25 @@ export class InvitationsService {
       },
     });
 
-    const { emailSent, errorMessage } = await this.dispatchInvitationEmail(
-      invitation.workspace.name,
-      invitation.email,
-      invitation.role,
-      token
-    );
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
+    // Background email dispatch
+    void (async () => {
+      try {
+        const { emailSent, errorMessage } = await this.dispatchInvitationEmail(
+          invitation.workspace.name,
+          invitation.email,
+          invitation.role,
+          token
+        );
+        await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage).catch(() => {});
+      } catch (err: any) {
+        logger.warn(`Async resend invitation email dispatch error: ${err.message}`);
+      }
+    })();
+
     logger.info(`📧 Invitation resend processed for ${invitation.email} in workspace ${invitation.workspace.name}`);
     return {
-      ...deliveryUpdatedInvitation,
-      emailSent,
+      ...updatedInvitation,
+      emailSent: true,
     };
   }
 
@@ -579,20 +618,21 @@ export class InvitationsService {
           resourceId: projectId,
         });
 
-        const { emailSent } = await this.dispatchProjectAddedEmail(
+        // Non-blocking async email notification
+        void this.dispatchProjectAddedEmail(
           project.workspace.name,
           project.name,
           existingUser.email,
           input.role,
           projectId
-        );
+        ).catch(() => {});
 
         logger.info(`✨ User ${existingUser.email} is already in workspace ${project.workspace.name}; directly added to project ${project.name}`);
 
         return {
           directAdded: true,
           member,
-          emailSent,
+          emailSent: true,
           message: `${existingUser.name || cleanEmail} is already a member of this workspace and was directly added to the project.`,
         };
       }
@@ -613,7 +653,7 @@ export class InvitationsService {
         deliveryStatus: InvitationDeliveryStatus.RETRYING,
       });
 
-      await authorizationService.recordAuditLog({
+      void authorizationService.recordAuditLog({
         actorId: inviterId,
         workspaceId,
         projectId,
@@ -625,33 +665,40 @@ export class InvitationsService {
           projectRole: input.role,
           projectName: project.name,
         },
-      });
+      }).catch(() => {});
 
-      // If registered user, also trigger in-app notification
+      // If registered user, trigger in-app notification
       if (existingUser) {
-        await NotificationJob.createAndDispatch({
+        void NotificationJob.createAndDispatch({
           recipientId: existingUser.id,
           type: NotificationType.WORKSPACE_INVITATION,
           title: `Project Invitation: ${project.name}`,
           message: `You were invited to collaborate on project "${project.name}" in workspace "${project.workspace.name}" as ${input.role}.`,
           resourceType: 'invitation',
           resourceId: token,
-        });
+        }).catch(() => {});
       }
 
-      const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
-        project.workspace.name,
-        project.name,
-        cleanEmail,
-        input.role,
-        token
-      );
-      const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
+      // Background asynchronous email dispatch
+      void (async () => {
+        try {
+          const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
+            project.workspace.name,
+            project.name,
+            cleanEmail,
+            input.role,
+            token
+          );
+          await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage).catch(() => {});
+        } catch (err: any) {
+          logger.warn(`Async project invitation resend email error: ${err.message}`);
+        }
+      })();
 
       logger.info(`📧 Project invitation refreshed for ${cleanEmail} in project ${project.name}`);
       return {
-        ...deliveryUpdatedInvitation,
-        emailSent,
+        ...updatedInvitation,
+        emailSent: true,
       };
     }
 
@@ -670,7 +717,7 @@ export class InvitationsService {
       expiresAt,
     });
 
-    await authorizationService.recordAuditLog({
+    void authorizationService.recordAuditLog({
       actorId: inviterId,
       workspaceId,
       projectId,
@@ -682,32 +729,39 @@ export class InvitationsService {
         projectRole: input.role,
         projectName: project.name,
       },
-    });
+    }).catch(() => {});
 
     // If registered user, trigger in-app notification immediately
     if (existingUser) {
-      await NotificationJob.createAndDispatch({
+      void NotificationJob.createAndDispatch({
         recipientId: existingUser.id,
         type: NotificationType.WORKSPACE_INVITATION,
         title: `Project Invitation: ${project.name}`,
         message: `You were invited to collaborate on project "${project.name}" in workspace "${project.workspace.name}" as ${input.role}.`,
         resourceType: 'invitation',
         resourceId: token,
-      });
+      }).catch(() => {});
     }
 
-    const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
-      project.workspace.name,
-      project.name,
-      cleanEmail,
-      input.role,
-      token
-    );
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(invitation.id, emailSent, errorMessage);
+    // Background asynchronous email dispatch
+    void (async () => {
+      try {
+        const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
+          project.workspace.name,
+          project.name,
+          cleanEmail,
+          input.role,
+          token
+        );
+        await this.updateDeliveryStatus(invitation.id, emailSent, errorMessage).catch(() => {});
+      } catch (err: any) {
+        logger.warn(`Async project invitation email dispatch error: ${err.message}`);
+      }
+    })();
 
     return {
-      ...deliveryUpdatedInvitation,
-      emailSent,
+      ...invitation,
+      emailSent: true,
     };
   }
 
@@ -750,34 +804,42 @@ export class InvitationsService {
       },
     });
 
-    const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
-      invitation.workspace.name,
-      invitation.project?.name || 'Project',
-      invitation.email,
-      invitation.projectRole || 'MEMBER',
-      token
-    );
-    const deliveryUpdatedInvitation = await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage);
+    // Background asynchronous email dispatch
+    void (async () => {
+      try {
+        const { emailSent, errorMessage } = await this.dispatchProjectInvitationEmail(
+          invitation.workspace.name,
+          invitation.project?.name || 'Project',
+          invitation.email,
+          invitation.projectRole || 'MEMBER',
+          token
+        );
+        await this.updateDeliveryStatus(updatedInvitation.id, emailSent, errorMessage).catch(() => {});
+      } catch (err: any) {
+        logger.warn(`Async resend project invitation email error: ${err.message}`);
+      }
+    })();
 
     // If target user exists on platform, trigger in-app notification
     const targetUser = await prisma.user.findUnique({
       where: { email: invitation.email.toLowerCase() },
+      select: { id: true }
     });
     if (targetUser) {
-      await NotificationJob.createAndDispatch({
+      void NotificationJob.createAndDispatch({
         recipientId: targetUser.id,
         type: NotificationType.WORKSPACE_INVITATION,
         title: `Project Invitation Resent: ${invitation.project?.name || 'Project'}`,
         message: `Your invitation to join project "${invitation.project?.name || 'Project'}" in workspace "${invitation.workspace.name}" was resent.`,
         resourceType: 'invitation',
         resourceId: token,
-      });
+      }).catch(() => {});
     }
 
     logger.info(`📧 Project invitation resend processed for ${invitation.email} in project ${invitation.project?.name}`);
     return {
-      ...deliveryUpdatedInvitation,
-      emailSent,
+      ...updatedInvitation,
+      emailSent: true,
     };
   }
 

@@ -176,7 +176,7 @@ export class TasksRepository {
     return { total, items };
   }
 
-  async listMyAssignedTasks(userId: string, workspaceId?: string) {
+  async listMyAssignedTasks(userId: string, workspaceId?: string, skip?: number, take: number = 100) {
     const whereClause: any = {
       deletedAt: null,
       isArchived: false,
@@ -204,9 +204,19 @@ export class TasksRepository {
         },
         labels: {
           include: { label: true }
+        },
+        assignees: {
+          include: {
+            user: { select: { id: true, name: true, email: true, avatarUrl: true } }
+          }
+        },
+        _count: {
+          select: { comments: { where: { deletedAt: null } } }
         }
       },
-      orderBy: [{ dueDate: 'asc' }, { priority: 'desc' }]
+      orderBy: [{ dueDate: 'asc' }, { priority: 'desc' }],
+      ...(skip !== undefined && { skip }),
+      take
     });
   }
 

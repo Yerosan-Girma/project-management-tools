@@ -141,13 +141,15 @@ export class ProjectsRepository {
           select: { id: true, name: true, email: true, avatarUrl: true }
         },
         members: {
+          take: 10,
           include: {
             user: { select: { id: true, name: true, email: true, avatarUrl: true } }
           }
         },
         _count: {
           select: {
-            tasks: { where: { deletedAt: null, isArchived: false } }
+            tasks: { where: { deletedAt: null, isArchived: false } },
+            members: true
           }
         }
       },
